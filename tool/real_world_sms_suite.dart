@@ -168,6 +168,26 @@ void main() {
           'Get Rs.500 cashback on shopping above Rs.2999. Offer valid till midnight. Tap now!',
       shouldParse: false,
     ),
+    const SmsCase(
+      name: 'Statement sent with due amount (should ignore)',
+      sender: 'HDFCBK',
+      body:
+          'Your monthly statement for card XX1234 has been sent. Total due INR 1250.00 by 10 May.',
+      shouldParse: false,
+    ),
+    const SmsCase(
+      name: 'OTP sent with amount text (should ignore)',
+      sender: 'ICICIB',
+      body:
+          'OTP sent to mobile for adding beneficiary. Do not share. Ref amount Rs.5000',
+      shouldParse: false,
+    ),
+    const SmsCase(
+      name: 'UPI collect request (should ignore)',
+      sender: 'UPI',
+      body: 'UPI collect request of Rs.500 from abc@okicici pending approval.',
+      shouldParse: false,
+    ),
   ];
 
   var passed = 0;
@@ -220,7 +240,8 @@ bool _validate(SmsCase c, dynamic parsed) {
   }
 
   if (c.upiId != null &&
-      (parsed.upiId == null || parsed.upiId.toLowerCase() != c.upiId!.toLowerCase())) {
+      (parsed.upiId == null ||
+          parsed.upiId.toLowerCase() != c.upiId!.toLowerCase())) {
     return false;
   }
 

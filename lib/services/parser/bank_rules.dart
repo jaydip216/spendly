@@ -18,7 +18,6 @@ class BankRules {
     'spent',
     'paid',
     'purchase',
-    'sent',
     'dr',
   ];
 
@@ -27,5 +26,17 @@ class BankRules {
     'received',
     'refund',
     'cr',
+  ];
+
+  static final List<RegExp> nonExpensePatterns = [
+    RegExp(
+      r'\bestatement\b|\be-statement\b|\bstatement\b',
+      caseSensitive: false,
+    ),
+    RegExp(r'\botp\b|\bone[ -]?time\s+password\b', caseSensitive: false),
+    RegExp(
+      r'\bupi\b.*\bcollect\s+request\b|\bcollect\s+request\b',
+      caseSensitive: false,
+    ),
   ];
 }

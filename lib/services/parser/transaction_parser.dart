@@ -29,6 +29,10 @@ class TransactionParser {
     required DateTime timestamp,
   }) {
     final String normalized = body.replaceAll('\n', ' ').trim();
+    if (_isNonExpenseMessage(normalized)) {
+      return null;
+    }
+
     final amount = _parseAmount(normalized);
     if (amount == null || amount <= 0) {
       return null;
@@ -134,5 +138,15 @@ class TransactionParser {
     }
 
     return null;
+  }
+
+  bool _isNonExpenseMessage(String message) {
+    for (final pattern in BankRules.nonExpensePatterns) {
+      if (pattern.hasMatch(message)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

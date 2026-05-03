@@ -4,60 +4,119 @@ import 'package:intl/intl.dart';
 import '../../../core/models/expense.dart';
 
 class ExpenseCard extends StatelessWidget {
-  const ExpenseCard({
-    super.key,
-    required this.expense,
-  });
+  const ExpenseCard({super.key, required this.expense});
 
   final Expense expense;
 
   @override
   Widget build(BuildContext context) {
-    final amountFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 2, locale: 'en_IN');
+    final amountFormat = NumberFormat.currency(
+      symbol: '₹',
+      decimalDigits: 2,
+      locale: 'en_IN',
+    );
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
     final isDebit = expense.transactionType == TransactionType.debit;
+    final scheme = Theme.of(context).colorScheme;
+    final merchant = expense.merchant.isEmpty
+        ? 'Unknown merchant'
+        : expense.merchant;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        title: Text(
-          expense.merchant.isEmpty ? 'Unknown merchant' : expense.merchant,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${expense.sender} • ${dateFormat.format(expense.timestamp)}'),
-            if (expense.upiId != null) Text('UPI: ${expense.upiId}'),
-            if (expense.cardLastFour != null) Text('Card: ****${expense.cardLastFour}'),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    merchant,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  amountFormat.format(expense.amount),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isDebit ? scheme.error : scheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${expense.sender} • ${dateFormat.format(expense.timestamp)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _TagChip(
+                  label: isDebit ? 'DEBIT' : 'CREDIT',
+                  foreground: isDebit
+                      ? scheme.onErrorContainer
+                      : scheme.onPrimaryContainer,
+                  background: isDebit
+                      ? scheme.errorContainer
+                      : scheme.primaryContainer,
+                ),
+                if (expense.upiId != null)
+                  _TagChip(
+                    label: 'UPI ${expense.upiId}',
+                    foreground: scheme.onSecondaryContainer,
+                    background: scheme.secondaryContainer,
+                  ),
+                if (expense.cardLastFour != null)
+                  _TagChip(
+                    label: 'Card ••••${expense.cardLastFour}',
+                    foreground: scheme.onSurface,
+                    background: scheme.surfaceContainerHighest,
+                  ),
+              ],
+            ),
           ],
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              amountFormat.format(expense.amount),
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: isDebit ? Colors.red.shade50 : Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                isDebit ? 'DEBIT' : 'CREDIT',
-                style: TextStyle(
-                  color: isDebit ? Colors.red.shade800 : Colors.green.shade800,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  const _TagChip({
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: background,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: foreground,
+          ),
         ),
       ),
     );

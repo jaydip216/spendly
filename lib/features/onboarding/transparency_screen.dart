@@ -5,10 +5,7 @@ import '../../core/providers/providers.dart';
 import '../../services/sms/sms_ingestion_service.dart';
 
 class TransparencyScreen extends ConsumerStatefulWidget {
-  const TransparencyScreen({
-    super.key,
-    required this.onCompleted,
-  });
+  const TransparencyScreen({super.key, required this.onCompleted});
 
   final Future<void> Function() onCompleted;
 
@@ -26,36 +23,48 @@ class _TransparencyScreenState extends ConsumerState<TransparencyScreen> {
       _error = null;
     });
 
-    final SmsIngestionService ingestion = ref.read(smsIngestionServiceProvider);
-    final prefs = ref.read(sharedPreferencesProvider);
-    final granted = await ingestion.requestSmsPermissions();
+    try {
+      final SmsIngestionService ingestion = ref.read(
+        smsIngestionServiceProvider,
+      );
+      final prefs = ref.read(sharedPreferencesProvider);
+      final granted = await ingestion.requestSmsPermissions();
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    if (!granted) {
+      if (!granted) {
+        setState(() {
+          _error = 'SMS permission is required for Spendly to detect expenses.';
+        });
+        return;
+      }
+
+      await ingestion.start();
+
+      if (!(prefs.getBool(initialSmsSyncDoneKey) ?? false)) {
+        await ingestion.ingestHistoricalInbox();
+        await prefs.setBool(initialSmsSyncDoneKey, true);
+      }
+
+      await prefs.setBool(onboardingSeenKey, true);
+      await widget.onCompleted();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
-        _error = 'SMS permission is required for Spendly to detect expenses.';
-        _isLoading = false;
+        _error =
+            'Setup failed due to a temporary issue. Please retry in a moment.';
       });
-      return;
-    }
-
-    await ingestion.start();
-
-    if (!(prefs.getBool(initialSmsSyncDoneKey) ?? false)) {
-      await ingestion.ingestHistoricalInbox();
-      await prefs.setBool(initialSmsSyncDoneKey, true);
-    }
-
-    await prefs.setBool(onboardingSeenKey, true);
-    await widget.onCompleted();
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -74,16 +83,20 @@ class _TransparencyScreenState extends ConsumerState<TransparencyScreen> {
             ),
             const SizedBox(height: 16),
             const _BulletPoint(
-              text: 'Spendly reads SMS on your phone to detect expense transactions.',
+              text:
+                  'Spendly reads SMS on your phone to detect expense transactions.',
             ),
             const _BulletPoint(
-              text: 'Data is stored only on your device. No cloud sync and no external server.',
+              text:
+                  'Data is stored only on your device. No cloud sync and no external server.',
             ),
             const _BulletPoint(
-              text: 'Only transaction-relevant fields are extracted: amount, sender, merchant, UPI/card hints.',
+              text:
+                  'Only transaction-relevant fields are extracted: amount, sender, merchant, UPI/card hints.',
             ),
             const _BulletPoint(
-              text: 'You can stop using the app anytime by revoking SMS permission in Android settings.',
+              text:
+                  'You can stop using the app anytime by revoking SMS permission in Android settings.',
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
