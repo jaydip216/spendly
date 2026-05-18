@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/models/expense.dart';
@@ -116,13 +117,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           actions: [
+            IconButton(
+              tooltip: 'Analytics',
+              onPressed: () => context.go('/analytics'),
+              icon: const Icon(Icons.bar_chart),
+            ),
             const _ThemeModeButton(),
             IconButton(
               tooltip: 'Sync existing SMS',
               onPressed: _syncInbox,
               icon: const Icon(Icons.sync),
             ),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'backup') {
+                  context.go('/backup');
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'backup',
+                  child: Text('Backup & Restore'),
+                ),
+              ],
+            ),
           ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          tooltip: 'Add expense',
+          onPressed: () => context.go('/manual-entry'),
+          child: const Icon(Icons.add),
         ),
         body: Container(
           decoration: BoxDecoration(

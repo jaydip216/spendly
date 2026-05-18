@@ -1,9 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../core/providers/providers.dart';
+import '../features/analytics/analytics_screen.dart';
+import '../features/backup/backup_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/manual_entry/manual_entry_screen.dart';
+
+final _router = GoRouter(
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/analytics',
+      builder: (context, state) => const AnalyticsScreen(),
+    ),
+    GoRoute(
+      path: '/manual-entry',
+      builder: (context, state) => const ManualEntryScreen(),
+    ),
+    GoRoute(
+      path: '/backup',
+      builder: (context, state) => const BackupScreen(),
+    ),
+  ],
+);
 
 class SpendlyApp extends ConsumerWidget {
   const SpendlyApp({super.key});
@@ -12,13 +37,13 @@ class SpendlyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
 
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Spendly',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
-      home: const HomeScreen(),
+      routerConfig: _router,
     );
   }
 }

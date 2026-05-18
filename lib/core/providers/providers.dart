@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/expense.dart';
 import '../repositories/expense_repository.dart';
+import '../../services/backup/backup_service.dart';
+import '../../services/backup/google_drive_service.dart';
 import '../../services/parser/transaction_parser.dart';
 import '../../services/sms/sms_ingestion_service.dart';
 
@@ -131,3 +133,15 @@ final monthlyExpensesProvider = StreamProvider<List<Expense>>((ref) {
   final month = ref.watch(selectedMonthProvider);
   return repo.watchMonthlyExpenses(month);
 });
+
+final backupServiceProvider = Provider<BackupService>(
+  (ref) => throw UnimplementedError(
+    'backupServiceProvider must be overridden in main',
+  ),
+);
+
+final googleDriveServiceProvider = Provider<GoogleDriveService>(
+  (ref) => throw UnimplementedError(
+    'googleDriveServiceProvider must be overridden in main',
+  ),
+);

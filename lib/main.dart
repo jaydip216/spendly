@@ -6,6 +6,8 @@ import 'app/spendly_app.dart';
 import 'core/database/isar_service.dart';
 import 'core/providers/providers.dart';
 import 'core/repositories/expense_repository.dart';
+import 'services/backup/backup_service.dart';
+import 'services/backup/google_drive_service.dart';
 import 'services/parser/transaction_parser.dart';
 import 'services/sms/sms_ingestion_service.dart';
 
@@ -20,6 +22,8 @@ Future<void> main() async {
     repository: repository,
     parser: parser,
   );
+  final backupService = BackupService(repository);
+  final googleDriveService = GoogleDriveService(backupService);
 
   runApp(
     ProviderScope(
@@ -29,6 +33,8 @@ Future<void> main() async {
         expenseRepositoryProvider.overrideWithValue(repository),
         transactionParserProvider.overrideWithValue(parser),
         smsIngestionServiceProvider.overrideWithValue(smsIngestionService),
+        backupServiceProvider.overrideWithValue(backupService),
+        googleDriveServiceProvider.overrideWithValue(googleDriveService),
       ],
       child: const SpendlyApp(),
     ),
