@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 
 import '../models/expense.dart';
@@ -48,5 +49,61 @@ class ExpenseRepository {
     await _isar.writeTxn(() async {
       await _isar.expenses.put(expense);
     });
+  }
+
+  Future<void> clearAll() async {
+    await _isar.writeTxn(() async {
+      await _isar.expenses.clear();
+    });
+  }
+
+  Future<void> saveAll(List<Expense> expenses) async {
+    await _isar.writeTxn(() async {
+      await _isar.expenses.putAll(expenses);
+    });
+  }
+
+  Future<List<Expense>> searchAndFilter({
+    String? query,
+    DateTimeRange? dateRange,
+    TransactionType? transactionType,
+    double? minAmount,
+    double? maxAmount,
+    ExpenseSource? source,
+  }) async {
+    final all = await getAllExpenses();
+
+    return all.where((expense) {
+      if (query != null && query.isNotEmpty) {
+        if (!expense.merchant.toLowerCase().contains(query.toLowerCase())) {
+          return false;
+        }
+      }
+
+      if (dateRange != null) {
+        if (expense.timestamp.isBefore(dateRange.start) ||
+            expense.timestamp.isAfter(dateRange.end)) {
+          return false;
+        }
+      }
+
+      if (transactionType != null && expense.transactionType != transactionType) {
+        return false;
+      }
+
+      if (minAmount != null && expense.amount < minAmount) {
+        return false;
+      }
+
+      if (maxAmount != null && expense.amount > maxAmount) {
+        return false;
+      }
+
+      if (source != null && expense.source != source) {
+        return false;
+      }
+
+      return true;
+    }).toList();
   }
 }

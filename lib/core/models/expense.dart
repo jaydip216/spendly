@@ -4,7 +4,7 @@ part 'expense.g.dart';
 
 enum TransactionType { debit, credit }
 
-enum ExpenseSource { sms }
+enum ExpenseSource { sms, manual }
 
 @collection
 class Expense {
@@ -38,4 +38,6 @@ class Expense {
 
   @Index(type: IndexType.hash)
   String dedupeKey = '';
+
+  String? notes;
 }

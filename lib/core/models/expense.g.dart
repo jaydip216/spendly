@@ -52,35 +52,40 @@ const ExpenseSchema = CollectionSchema(
       name: r'merchant',
       type: IsarType.string,
     ),
-    r'rawSms': PropertySchema(
+    r'notes': PropertySchema(
       id: 7,
+      name: r'notes',
+      type: IsarType.string,
+    ),
+    r'rawSms': PropertySchema(
+      id: 8,
       name: r'rawSms',
       type: IsarType.string,
     ),
     r'sender': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'sender',
       type: IsarType.string,
     ),
     r'source': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'source',
       type: IsarType.byte,
       enumMap: _ExpensesourceEnumValueMap,
     ),
     r'timestamp': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'timestamp',
       type: IsarType.dateTime,
     ),
     r'transactionType': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'transactionType',
       type: IsarType.byte,
       enumMap: _ExpensetransactionTypeEnumValueMap,
     ),
     r'upiId': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'upiId',
       type: IsarType.string,
     )
@@ -186,6 +191,12 @@ int _expenseEstimateSize(
   bytesCount += 3 + object.currency.length * 3;
   bytesCount += 3 + object.dedupeKey.length * 3;
   bytesCount += 3 + object.merchant.length * 3;
+  {
+    final value = object.notes;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.rawSms.length * 3;
   bytesCount += 3 + object.sender.length * 3;
   {
@@ -210,12 +221,13 @@ void _expenseSerialize(
   writer.writeString(offsets[4], object.currency);
   writer.writeString(offsets[5], object.dedupeKey);
   writer.writeString(offsets[6], object.merchant);
-  writer.writeString(offsets[7], object.rawSms);
-  writer.writeString(offsets[8], object.sender);
-  writer.writeByte(offsets[9], object.source.index);
-  writer.writeDateTime(offsets[10], object.timestamp);
-  writer.writeByte(offsets[11], object.transactionType.index);
-  writer.writeString(offsets[12], object.upiId);
+  writer.writeString(offsets[7], object.notes);
+  writer.writeString(offsets[8], object.rawSms);
+  writer.writeString(offsets[9], object.sender);
+  writer.writeByte(offsets[10], object.source.index);
+  writer.writeDateTime(offsets[11], object.timestamp);
+  writer.writeByte(offsets[12], object.transactionType.index);
+  writer.writeString(offsets[13], object.upiId);
 }
 
 Expense _expenseDeserialize(
@@ -233,16 +245,17 @@ Expense _expenseDeserialize(
   object.dedupeKey = reader.readString(offsets[5]);
   object.id = id;
   object.merchant = reader.readString(offsets[6]);
-  object.rawSms = reader.readString(offsets[7]);
-  object.sender = reader.readString(offsets[8]);
+  object.notes = reader.readStringOrNull(offsets[7]);
+  object.rawSms = reader.readString(offsets[8]);
+  object.sender = reader.readString(offsets[9]);
   object.source =
-      _ExpensesourceValueEnumMap[reader.readByteOrNull(offsets[9])] ??
+      _ExpensesourceValueEnumMap[reader.readByteOrNull(offsets[10])] ??
           ExpenseSource.sms;
-  object.timestamp = reader.readDateTime(offsets[10]);
+  object.timestamp = reader.readDateTime(offsets[11]);
   object.transactionType =
-      _ExpensetransactionTypeValueEnumMap[reader.readByteOrNull(offsets[11])] ??
+      _ExpensetransactionTypeValueEnumMap[reader.readByteOrNull(offsets[12])] ??
           TransactionType.debit;
-  object.upiId = reader.readStringOrNull(offsets[12]);
+  object.upiId = reader.readStringOrNull(offsets[13]);
   return object;
 }
 
@@ -268,19 +281,21 @@ P _expenseDeserializeProp<P>(
     case 6:
       return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
       return (reader.readString(offset)) as P;
     case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
       return (_ExpensesourceValueEnumMap[reader.readByteOrNull(offset)] ??
           ExpenseSource.sms) as P;
-    case 10:
-      return (reader.readDateTime(offset)) as P;
     case 11:
+      return (reader.readDateTime(offset)) as P;
+    case 12:
       return (_ExpensetransactionTypeValueEnumMap[
               reader.readByteOrNull(offset)] ??
           TransactionType.debit) as P;
-    case 12:
+    case 13:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -289,9 +304,11 @@ P _expenseDeserializeProp<P>(
 
 const _ExpensesourceEnumValueMap = {
   'sms': 0,
+  'manual': 1,
 };
 const _ExpensesourceValueEnumMap = {
   0: ExpenseSource.sms,
+  1: ExpenseSource.manual,
 };
 const _ExpensetransactionTypeEnumValueMap = {
   'debit': 0,
@@ -1573,6 +1590,152 @@ extension ExpenseQueryFilter
     });
   }
 
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'notes',
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'notes',
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'notes',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'notes',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'notes',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'notes',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'notes',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'notes',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'notes',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'notes',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'notes',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> notesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'notes',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<Expense, Expense, QAfterFilterCondition> rawSmsEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2231,6 +2394,18 @@ extension ExpenseQuerySortBy on QueryBuilder<Expense, Expense, QSortBy> {
     });
   }
 
+  QueryBuilder<Expense, Expense, QAfterSortBy> sortByNotes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterSortBy> sortByNotesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.desc);
+    });
+  }
+
   QueryBuilder<Expense, Expense, QAfterSortBy> sortByRawSms() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawSms', Sort.asc);
@@ -2402,6 +2577,18 @@ extension ExpenseQuerySortThenBy
     });
   }
 
+  QueryBuilder<Expense, Expense, QAfterSortBy> thenByNotes() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterSortBy> thenByNotesDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notes', Sort.desc);
+    });
+  }
+
   QueryBuilder<Expense, Expense, QAfterSortBy> thenByRawSms() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawSms', Sort.asc);
@@ -2524,6 +2711,13 @@ extension ExpenseQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Expense, Expense, QDistinct> distinctByNotes(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'notes', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<Expense, Expense, QDistinct> distinctByRawSms(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2611,6 +2805,12 @@ extension ExpenseQueryProperty
   QueryBuilder<Expense, String, QQueryOperations> merchantProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'merchant');
+    });
+  }
+
+  QueryBuilder<Expense, String?, QQueryOperations> notesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'notes');
     });
   }
 
