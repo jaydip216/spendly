@@ -91,6 +91,36 @@ final allExpensesProvider = StreamProvider<List<Expense>>((ref) {
   return repo.watchAllExpenses();
 });
 
+final searchQueryProvider = StateProvider<String>((ref) => '');
+
+final filterTransactionTypeProvider = StateProvider<TransactionType?>((ref) => null);
+
+final filterSourceProvider = StateProvider<ExpenseSource?>((ref) => null);
+
+final filterMinAmountProvider = StateProvider<double?>((ref) => null);
+
+final filterMaxAmountProvider = StateProvider<double?>((ref) => null);
+
+final filterDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
+
+final filteredExpensesProvider = FutureProvider<List<Expense>>((ref) {
+  final repo = ref.watch(expenseRepositoryProvider);
+  final query = ref.watch(searchQueryProvider);
+  final type = ref.watch(filterTransactionTypeProvider);
+  final source = ref.watch(filterSourceProvider);
+  final minAmount = ref.watch(filterMinAmountProvider);
+  final maxAmount = ref.watch(filterMaxAmountProvider);
+  final dateRange = ref.watch(filterDateRangeProvider);
+  return repo.searchAndFilter(
+    query: query.isEmpty ? null : query,
+    transactionType: type,
+    source: source,
+    minAmount: minAmount,
+    maxAmount: maxAmount,
+    dateRange: dateRange,
+  );
+});
+
 final selectedMonthProvider = StateProvider<DateTime>((ref) {
   final now = DateTime.now();
   return DateTime(now.year, now.month);

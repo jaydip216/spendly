@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -76,8 +78,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
-    final expensesAsync = ref.watch(allExpensesProvider);
-
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -136,51 +136,239 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
-          child: TabBarView(
+          child: const TabBarView(
             children: [
-              expensesAsync.when(
-                data: (expenses) {
-                  if (expenses.isEmpty) {
-                    return const _EmptyExpensesState();
-                  }
-
-                  final debitTotal = expenses
-                      .where(
-                        (item) => item.transactionType == TransactionType.debit,
-                      )
-                      .fold<double>(0, (sum, item) => sum + item.amount);
-
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                    child: Column(
-                      children: [
-                        _DashboardOverview(
-                          totalSpent: debitTotal,
-                          count: expenses.length,
-                        ),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: expenses.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (context, index) {
-                              return ExpenseCard(expense: expenses[index]);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) =>
-                    Center(child: Text('Failed to load expenses: $error')),
-              ),
-              const MonthlyViewScreen(),
+              _AllExpensesTab(),
+              MonthlyViewScreen(),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AllExpensesTab extends ConsumerStatefulWidget {
+  const _AllExpensesTab();
+
+  @override
+  ConsumerState<_AllExpensesTab> createState() => _AllExpensesTabState();
+}
+
+class _AllExpensesTabState extends ConsumerState<_AllExpensesTab> {
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      ref.read(searchQueryProvider.notifier).state = value;
+    });
+  }
+
+  void _clearAllFilters() {
+    _searchController.clear();
+    ref.read(searchQueryProvider.notifier).state = '';
+    ref.read(filterTransactionTypeProvider.notifier).state = null;
+    ref.read(filterSourceProvider.notifier).state = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = ref.watch(searchQueryProvider);
+    final typeFilter = ref.watch(filterTransactionTypeProvider);
+    final sourceFilter = ref.watch(filterSourceProvider);
+
+    final isFiltering = query.isNotEmpty || typeFilter != null || sourceFilter != null;
+
+    final expensesAsync = isFiltering
+        ? ref.watch(filteredExpensesProvider)
+        : ref.watch(allExpensesProvider);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      child: Column(
+        children: [
+          // Search bar
+          TextField(
+            key: const Key('search_bar'),
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Search by merchant…',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: query.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        ref.read(searchQueryProvider.notifier).state = '';
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Filter chips row
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: 'Debit',
+                  selected: typeFilter == TransactionType.debit,
+                  onSelected: (selected) {
+                    ref.read(filterTransactionTypeProvider.notifier).state =
+                        selected ? TransactionType.debit : null;
+                  },
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Credit',
+                  selected: typeFilter == TransactionType.credit,
+                  onSelected: (selected) {
+                    ref.read(filterTransactionTypeProvider.notifier).state =
+                        selected ? TransactionType.credit : null;
+                  },
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'SMS',
+                  selected: sourceFilter == ExpenseSource.sms,
+                  onSelected: (selected) {
+                    ref.read(filterSourceProvider.notifier).state =
+                        selected ? ExpenseSource.sms : null;
+                  },
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Manual',
+                  selected: sourceFilter == ExpenseSource.manual,
+                  onSelected: (selected) {
+                    ref.read(filterSourceProvider.notifier).state =
+                        selected ? ExpenseSource.manual : null;
+                  },
+                ),
+                if (isFiltering) ...[
+                  const SizedBox(width: 8),
+                  ActionChip(
+                    label: const Text('Clear'),
+                    avatar: const Icon(Icons.close, size: 16),
+                    onPressed: _clearAllFilters,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Expenses list
+          Expanded(
+            child: expensesAsync.when(
+              data: (expenses) {
+                if (expenses.isEmpty) {
+                  return isFiltering
+                      ? const _NoResultsState()
+                      : const _EmptyExpensesState();
+                }
+
+                final debitTotal = expenses
+                    .where(
+                      (item) => item.transactionType == TransactionType.debit,
+                    )
+                    .fold<double>(0, (sum, item) => sum + item.amount);
+
+                return Column(
+                  children: [
+                    _DashboardOverview(
+                      totalSpent: debitTotal,
+                      count: expenses.length,
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: expenses.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          return ExpenseCard(expense: expenses[index]);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) =>
+                  Center(child: Text('Failed to load expenses: $error')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      key: Key('filter_chip_$label'),
+      label: Text(label),
+      selected: selected,
+      onSelected: onSelected,
+    );
+  }
+}
+
+class _NoResultsState extends StatelessWidget {
+  const _NoResultsState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      key: const Key('no_results'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 48,
+            color: Theme.of(context).colorScheme.outline,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No results found',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Try adjusting your search or filters.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }
