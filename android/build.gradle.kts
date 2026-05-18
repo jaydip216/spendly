@@ -31,10 +31,7 @@ subprojects {
         }
 
         extensions.configure<LibraryExtension> {
-            val currentCompileSdk = compileSdk ?: 0
-            if (currentCompileSdk < 36) {
-                compileSdk = 36
-            }
+            compileSdk = 36
 
             if (namespace == null) {
                 val sanitizedName = project.name.replace(Regex("[^A-Za-z0-9_]"), "_")
