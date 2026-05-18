@@ -13,6 +13,7 @@ import '../../services/sms/sms_ingestion_service.dart';
 const onboardingSeenKey = 'onboarding_seen';
 const initialSmsSyncDoneKey = 'initial_sms_sync_done';
 const themeModePreferenceKey = 'theme_mode';
+const lastBackupTimestampKey = 'last_backup_timestamp';
 
 class ThemeModeController extends StateNotifier<ThemeMode> {
   ThemeModeController(this._prefs)
@@ -145,3 +146,12 @@ final googleDriveServiceProvider = Provider<GoogleDriveService>(
     'googleDriveServiceProvider must be overridden in main',
   ),
 );
+
+final lastBackupProvider = Provider<DateTime?>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  final ms = prefs.getInt(lastBackupTimestampKey);
+  if (ms == null) return null;
+  return DateTime.fromMillisecondsSinceEpoch(ms);
+});
+
+final backupNudgeDismissedProvider = StateProvider<bool>((ref) => false);

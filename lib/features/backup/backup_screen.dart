@@ -41,6 +41,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       final backupService = ref.read(backupServiceProvider);
       final json = await backupService.exportToJson();
       await Share.share(json, subject: 'Spendly Backup');
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setInt(lastBackupTimestampKey, DateTime.now().millisecondsSinceEpoch);
     });
   }
 
@@ -77,6 +79,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     await _run(() async {
       final driveService = ref.read(googleDriveServiceProvider);
       final result = await driveService.backup();
+      if (result is GoogleDriveSuccess) {
+        final prefs = ref.read(sharedPreferencesProvider);
+        await prefs.setInt(lastBackupTimestampKey, DateTime.now().millisecondsSinceEpoch);
+      }
       _showSnackBar(_driveResultMessage(result, 'Backup successful!'));
     });
   }

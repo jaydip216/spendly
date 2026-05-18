@@ -92,10 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
-              Text(
-                'Track every rupee from SMS',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              const _BackupHealthIndicator(),
             ],
           ),
           bottom: PreferredSize(
@@ -220,6 +217,7 @@ class _AllExpensesTabState extends ConsumerState<_AllExpensesTab> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
       child: Column(
         children: [
+          const _BackupNudgeBanner(),
           // Search bar
           TextField(
             key: const Key('search_bar'),
@@ -518,6 +516,131 @@ class _MetricTile extends StatelessWidget {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackupNudgeBanner extends ConsumerWidget {
+  const _BackupNudgeBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dismissed = ref.watch(backupNudgeDismissedProvider);
+    if (dismissed) return const SizedBox.shrink();
+
+    final lastBackup = ref.watch(lastBackupProvider);
+    final now = DateTime.now();
+    final needsNudge = lastBackup == null ||
+        now.difference(lastBackup).inDays > 7;
+
+    if (!needsNudge) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.errorContainer.withAlpha(180),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 20,
+              color: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "You haven't backed up in a while. Tap to secure your data.",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => GoRouter.of(context).go('/backup'),
+              child: Text(
+                'Backup Now',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () =>
+                  ref.read(backupNudgeDismissedProvider.notifier).state = true,
+              child: Text(
+                'Later',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer.withAlpha(180),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BackupHealthIndicator extends ConsumerWidget {
+  const _BackupHealthIndicator();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lastBackup = ref.watch(lastBackupProvider);
+    final now = DateTime.now();
+
+    Color dotColor;
+    String label;
+
+    if (lastBackup == null) {
+      dotColor = Colors.red;
+      label = 'Never backed up';
+    } else {
+      final days = now.difference(lastBackup).inDays;
+      if (days < 7) {
+        dotColor = Colors.green;
+        label = days == 0 ? 'Backed up today' : 'Backed up $days day${days == 1 ? '' : 's'} ago';
+      } else if (days <= 30) {
+        dotColor = Colors.orange;
+        label = 'Last backup: $days days ago';
+      } else {
+        dotColor = Colors.red;
+        label = 'Last backup: $days days ago';
+      }
+    }
+
+    return GestureDetector(
+      onTap: () => GoRouter.of(context).go('/backup'),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );

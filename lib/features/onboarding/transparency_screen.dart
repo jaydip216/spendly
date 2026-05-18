@@ -98,6 +98,7 @@ class _TransparencyScreenState extends ConsumerState<TransparencyScreen> {
               text:
                   'You can stop using the app anytime by revoking SMS permission in Android settings.',
             ),
+            const _DataSafetyWarning(),
             if (_error != null) ...[
               const SizedBox(height: 16),
               Text(
@@ -117,6 +118,43 @@ class _TransparencyScreenState extends ConsumerState<TransparencyScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text('Allow SMS Access and Continue'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DataSafetyWarning extends StatelessWidget {
+  const _DataSafetyWarning();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.errorContainer.withAlpha(160),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              size: 20,
+              color: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Important: If you clear app data or uninstall, your expenses will be lost. Use Backup regularly to keep your data safe.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    ),
               ),
             ),
           ],
