@@ -17,6 +17,7 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
 
@@ -32,10 +33,18 @@ subprojects {
 
         extensions.configure<LibraryExtension> {
             compileSdk = 36
-
             if (namespace == null) {
                 val sanitizedName = project.name.replace(Regex("[^A-Za-z0-9_]"), "_")
                 namespace = "com.spendly.generated.$sanitizedName"
+            }
+        }
+    }
+
+    // Force compileSdk on Groovy-based library plugins (e.g. isar_flutter_libs)
+    project.configurations.all {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "androidx.core") {
+                useVersion("1.12.0")
             }
         }
     }
