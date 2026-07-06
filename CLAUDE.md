@@ -49,10 +49,13 @@ Because ingestion happens from multiple paths/isolates, **deduplication is criti
 The parser is the highest-risk area for regressions across diverse Indian bank SMS formats. Add cases to `tool/real_world_sms_suite.dart` and the parser tests when changing regexes.
 
 ### Persistence
-Single Isar collection: `Expense` (`lib/core/models/expense.dart`), opened as a singleton in `isar_service.dart`. Editing the model requires re-running build_runner to regenerate `expense.g.dart` (checked in). `searchAndFilter` in the repository filters in-memory (loads all, then `.where`) rather than via Isar queries.
+Two Isar collections: `Expense` and `Category` (`lib/core/models/`), opened as a singleton in `isar_service.dart`. Editing a model requires re-running build_runner to regenerate `*.g.dart` (checked in). `Expense.dedupeKey` has a unique replace-on-conflict index. `Expense.category` is a denormalized string name (not an IsarLink) so the background isolate and JSON backup can handle it; rows predating the field deserialize as `''` — treat `''` as `'Other'`. `searchAndFilter` in the repository filters in-memory (loads all, then `.where`) rather than via Isar queries.
+
+### Categories (`lib/services/categorization/`)
+`CategoryRules` is pure/static: keyword auto-categorization (merchant → UPI handle → raw SMS, rules checked in map order — Groceries before Food deliberately) plus the `defaultCategories` list used for seeding. All three ingestion paths auto-assign; users override via the expense detail sheet. `CategoryRepository.delete/rename` atomically rewrite affected expenses. Defaults are seeded and legacy expenses backfilled once in `main.dart`.
 
 ### Backup (`lib/services/backup/`)
-`BackupService` serializes all expenses to versioned JSON (`schemaVersion`, currently 1). **Import REPLACES all data** (`clearAll` + `saveAll`), it does not merge. `GoogleDriveService` wraps `BackupService` for Drive upload/download and requires OAuth setup + `android/app/google-services.json` (optional; local JSON export works without it).
+`BackupService(isar, expenseRepo)` serializes expenses + categories to versioned JSON (`schemaVersion`, currently 2; v1 payloads still import — defaults seeded, expenses auto-categorized). **Import REPLACES all data atomically** in a single Isar txn after the whole payload parses; it does not merge. `GoogleDriveService` wraps `BackupService` for Drive upload/download and requires OAuth setup + `android/app/google-services.json` (optional; local JSON export works without it).
 
 ### UI
 `go_router` config and Material 3 theming are both in `lib/app/spendly_app.dart` (routes: `/`, `/analytics`, `/manual-entry`, `/backup`). Features are organized by screen under `lib/features/`. Analytics uses `fl_chart`. A "backup nudge" (colored indicator + reminder) is driven by `lastBackupTimestampKey` in SharedPreferences.
