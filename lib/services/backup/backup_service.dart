@@ -32,6 +32,14 @@ class BackupService {
     final expenseList = (data['expenses'] as List)
         .map((e) => _mapToExpense(e as Map<String, dynamic>))
         .toList();
+    // Old backups may carry empty dedupe keys; synthesize unique ones so
+    // the unique dedupeKey index doesn't collapse them into a single row.
+    final importedAtMs = DateTime.now().millisecondsSinceEpoch;
+    for (var i = 0; i < expenseList.length; i++) {
+      if (expenseList[i].dedupeKey.isEmpty) {
+        expenseList[i].dedupeKey = 'imported_${importedAtMs}_$i';
+      }
+    }
     await _repository.replaceAll(expenseList);
   }
 

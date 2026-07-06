@@ -157,6 +157,20 @@ void main() {
       expect(all.length, 2);
     });
 
+    test('duplicate dedupeKey replaces instead of duplicating', () async {
+      final first = makeExpense(merchant: 'First', amount: 100)
+        ..dedupeKey = 'same-key';
+      final second = makeExpense(merchant: 'Second', amount: 100)
+        ..dedupeKey = 'same-key';
+
+      await repo.saveExpense(first);
+      await repo.saveExpense(second);
+
+      final all = await repo.getAllExpenses();
+      expect(all.length, 1);
+      expect(all.first.merchant, 'Second');
+    });
+
     test('replaceAll swaps existing data atomically', () async {
       await repo.saveExpense(makeExpense(merchant: 'Old', amount: 100));
 

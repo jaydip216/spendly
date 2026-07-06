@@ -151,8 +151,8 @@ const ExpenseSchema = CollectionSchema(
     r'dedupeKey': IndexSchema(
       id: -6620796718844543204,
       name: r'dedupeKey',
-      unique: false,
-      replace: false,
+      unique: true,
+      replace: true,
       properties: [
         IndexPropertySchema(
           name: r'dedupeKey',
@@ -329,6 +329,61 @@ List<IsarLinkBase<dynamic>> _expenseGetLinks(Expense object) {
 
 void _expenseAttach(IsarCollection<dynamic> col, Id id, Expense object) {
   object.id = id;
+}
+
+extension ExpenseByIndex on IsarCollection<Expense> {
+  Future<Expense?> getByDedupeKey(String dedupeKey) {
+    return getByIndex(r'dedupeKey', [dedupeKey]);
+  }
+
+  Expense? getByDedupeKeySync(String dedupeKey) {
+    return getByIndexSync(r'dedupeKey', [dedupeKey]);
+  }
+
+  Future<bool> deleteByDedupeKey(String dedupeKey) {
+    return deleteByIndex(r'dedupeKey', [dedupeKey]);
+  }
+
+  bool deleteByDedupeKeySync(String dedupeKey) {
+    return deleteByIndexSync(r'dedupeKey', [dedupeKey]);
+  }
+
+  Future<List<Expense?>> getAllByDedupeKey(List<String> dedupeKeyValues) {
+    final values = dedupeKeyValues.map((e) => [e]).toList();
+    return getAllByIndex(r'dedupeKey', values);
+  }
+
+  List<Expense?> getAllByDedupeKeySync(List<String> dedupeKeyValues) {
+    final values = dedupeKeyValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'dedupeKey', values);
+  }
+
+  Future<int> deleteAllByDedupeKey(List<String> dedupeKeyValues) {
+    final values = dedupeKeyValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'dedupeKey', values);
+  }
+
+  int deleteAllByDedupeKeySync(List<String> dedupeKeyValues) {
+    final values = dedupeKeyValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'dedupeKey', values);
+  }
+
+  Future<Id> putByDedupeKey(Expense object) {
+    return putByIndex(r'dedupeKey', object);
+  }
+
+  Id putByDedupeKeySync(Expense object, {bool saveLinks = true}) {
+    return putByIndexSync(r'dedupeKey', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByDedupeKey(List<Expense> objects) {
+    return putAllByIndex(r'dedupeKey', objects);
+  }
+
+  List<Id> putAllByDedupeKeySync(List<Expense> objects,
+      {bool saveLinks = true}) {
+    return putAllByIndexSync(r'dedupeKey', objects, saveLinks: saveLinks);
+  }
 }
 
 extension ExpenseQueryWhereSort on QueryBuilder<Expense, Expense, QWhere> {

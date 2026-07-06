@@ -36,7 +36,10 @@ class Expense {
 
   DateTime createdAt = DateTime.now();
 
-  @Index(type: IndexType.hash)
+  // Unique + replace closes the race between the foreground listener and
+  // the background isolate ingesting the same SMS: the second put replaces
+  // the first row instead of duplicating it.
+  @Index(type: IndexType.hash, unique: true, replace: true)
   String dedupeKey = '';
 
   String? notes;
