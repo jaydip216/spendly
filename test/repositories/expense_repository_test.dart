@@ -71,6 +71,29 @@ void main() {
       expect(results.first.merchant, 'A');
     });
 
+    test('date range includes expenses on the end date', () async {
+      await repo.saveExpense(makeExpense(
+        merchant: 'EndDay',
+        amount: 100,
+        timestamp: DateTime(2025, 1, 31, 12, 0),
+      ));
+      await repo.saveExpense(makeExpense(
+        merchant: 'NextDay',
+        amount: 200,
+        timestamp: DateTime(2025, 2, 1, 0, 30),
+      ));
+
+      // Picker-style range with end at midnight.
+      final results = await repo.searchAndFilter(
+        dateRange: DateTimeRange(
+          start: DateTime(2025, 1, 1),
+          end: DateTime(2025, 1, 31),
+        ),
+      );
+      expect(results.length, 1);
+      expect(results.first.merchant, 'EndDay');
+    });
+
     test('filter by amount range', () async {
       await repo.saveExpense(makeExpense(merchant: 'A', amount: 50));
       await repo.saveExpense(makeExpense(merchant: 'B', amount: 150));
@@ -132,6 +155,33 @@ void main() {
       await repo.saveAll(expenses);
       final all = await repo.getAllExpenses();
       expect(all.length, 2);
+    });
+
+    test('duplicate dedupeKey replaces instead of duplicating', () async {
+      final first = makeExpense(merchant: 'First', amount: 100)
+        ..dedupeKey = 'same-key';
+      final second = makeExpense(merchant: 'Second', amount: 100)
+        ..dedupeKey = 'same-key';
+
+      await repo.saveExpense(first);
+      await repo.saveExpense(second);
+
+      final all = await repo.getAllExpenses();
+      expect(all.length, 1);
+      expect(all.first.merchant, 'Second');
+    });
+
+    test('replaceAll swaps existing data atomically', () async {
+      await repo.saveExpense(makeExpense(merchant: 'Old', amount: 100));
+
+      await repo.replaceAll([
+        makeExpense(merchant: 'New1', amount: 10),
+        makeExpense(merchant: 'New2', amount: 20),
+      ]);
+
+      final all = await repo.getAllExpenses();
+      expect(all.length, 2);
+      expect(all.any((e) => e.merchant == 'Old'), isFalse);
     });
   });
 }

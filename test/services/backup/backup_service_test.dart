@@ -2,9 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
+import 'package:spendly/core/models/category.dart';
 import 'package:spendly/core/models/expense.dart';
+import 'package:spendly/core/repositories/category_repository.dart';
 import 'package:spendly/core/repositories/expense_repository.dart';
 import 'package:spendly/services/backup/backup_service.dart';
+import 'package:spendly/services/categorization/category_rules.dart';
 
 void main() {
   late Isar isar;
@@ -14,12 +17,12 @@ void main() {
   setUp(() async {
     await Isar.initializeIsarCore(download: true);
     isar = await Isar.open(
-      [ExpenseSchema],
+      [ExpenseSchema, CategorySchema],
       directory: '',
       name: 'backup_test_${DateTime.now().microsecondsSinceEpoch}',
     );
     repo = ExpenseRepository(isar);
-    backupService = BackupService(repo);
+    backupService = BackupService(isar, repo);
   });
 
   tearDown(() async {
@@ -55,15 +58,16 @@ void main() {
   }
 
   group('exportToJson', () {
-    test('produces valid JSON with schemaVersion=1', () async {
+    test('produces valid JSON with schemaVersion=2', () async {
       await repo.saveExpense(makeExpense());
 
       final json = await backupService.exportToJson();
       final decoded = jsonDecode(json) as Map<String, dynamic>;
 
-      expect(decoded['schemaVersion'], 1);
+      expect(decoded['schemaVersion'], 2);
       expect(decoded['exportedAt'], isA<String>());
       expect(decoded['expenses'], isA<List>());
+      expect(decoded['categories'], isA<List>());
     });
 
     test('includes all expense fields', () async {
@@ -170,6 +174,107 @@ void main() {
         () => backupService.importFromJson(badJson),
         throwsA(isA<FormatException>()),
       );
+    });
+
+    test('v2 round-trip preserves categories and expense category', () async {
+      final categoryRepo = CategoryRepository(isar);
+      await categoryRepo.seedDefaults();
+      await categoryRepo.put(Category()
+        ..name = 'Travel'
+        ..colorValue = 0xFF123456);
+      final expense = makeExpense(merchant: 'Airline')..category = 'Travel';
+      await repo.saveExpense(expense);
+
+      final json = await backupService.exportToJson();
+      await backupService.importFromJson(json);
+
+      final restoredExpenses = await repo.getAllExpenses();
+      expect(restoredExpenses.single.category, 'Travel');
+      final restoredCategories = await categoryRepo.getAll();
+      expect(
+        restoredCategories.length,
+        CategoryRules.defaultCategories.length + 1,
+      );
+      final travel =
+          restoredCategories.firstWhere((c) => c.name == 'Travel');
+      expect(travel.colorValue, 0xFF123456);
+      expect(travel.isDefault, isFalse);
+    });
+
+    test('v1 payload imports with seeded defaults and auto-categorization',
+        () async {
+      final v1Json = jsonEncode({
+        'schemaVersion': 1,
+        'exportedAt': '2026-01-01T00:00:00.000',
+        'expenses': [
+          {
+            'amount': 250.0,
+            'merchant': 'ZOMATO',
+            'timestamp': '2026-01-05T12:00:00.000',
+            'transactionType': 'debit',
+            'source': 'sms',
+            'sender': 'HDFCBK',
+            'rawSms': 'Rs.250 paid to ZOMATO',
+            'currency': 'INR',
+            'dedupeKey': '',
+            'createdAt': '2026-01-05T12:00:01.000',
+          },
+          {
+            'amount': 90.0,
+            'merchant': 'Random Store',
+            'timestamp': '2026-01-06T12:00:00.000',
+            'transactionType': 'debit',
+            'source': 'sms',
+            'sender': 'SBIINB',
+            'rawSms': 'Rs.90 spent at Random Store',
+            'currency': 'INR',
+            'dedupeKey': '',
+            'createdAt': '2026-01-06T12:00:01.000',
+          },
+        ],
+      });
+
+      await backupService.importFromJson(v1Json);
+
+      final expenses = await repo.getAllExpenses();
+      expect(expenses.length, 2);
+      final zomato = expenses.firstWhere((e) => e.merchant == 'ZOMATO');
+      expect(zomato.category, 'Food');
+      final random =
+          expenses.firstWhere((e) => e.merchant == 'Random Store');
+      expect(random.category, 'Other');
+      // Empty dedupe keys must not collapse under the unique index.
+      expect(
+        expenses.map((e) => e.dedupeKey).toSet().length,
+        2,
+      );
+
+      final categories = await CategoryRepository(isar).getAll();
+      expect(categories.length, CategoryRules.defaultCategories.length);
+      expect(categories.every((c) => c.isDefault), isTrue);
+    });
+
+    test('failed import leaves existing data intact', () async {
+      await repo.saveExpense(makeExpense(merchant: 'Keeper', amount: 42.0));
+
+      // Valid version but malformed expense entry: parsing fails before
+      // any database write.
+      final malformed = jsonEncode({
+        'schemaVersion': 1,
+        'exportedAt': DateTime.now().toIso8601String(),
+        'expenses': [
+          {'merchant': 'Broken'}, // missing required amount/timestamp
+        ],
+      });
+
+      await expectLater(
+        () => backupService.importFromJson(malformed),
+        throwsA(anything),
+      );
+
+      final all = await repo.getAllExpenses();
+      expect(all.length, 1);
+      expect(all.first.merchant, 'Keeper');
     });
 
     test('throws FormatException when schemaVersion is null', () async {

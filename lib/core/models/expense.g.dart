@@ -32,60 +32,65 @@ const ExpenseSchema = CollectionSchema(
       name: r'cardLastFour',
       type: IsarType.string,
     ),
-    r'createdAt': PropertySchema(
+    r'category': PropertySchema(
       id: 3,
+      name: r'category',
+      type: IsarType.string,
+    ),
+    r'createdAt': PropertySchema(
+      id: 4,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'currency': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'currency',
       type: IsarType.string,
     ),
     r'dedupeKey': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'dedupeKey',
       type: IsarType.string,
     ),
     r'merchant': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'merchant',
       type: IsarType.string,
     ),
     r'notes': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'notes',
       type: IsarType.string,
     ),
     r'rawSms': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'rawSms',
       type: IsarType.string,
     ),
     r'sender': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'sender',
       type: IsarType.string,
     ),
     r'source': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'source',
       type: IsarType.byte,
       enumMap: _ExpensesourceEnumValueMap,
     ),
     r'timestamp': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'timestamp',
       type: IsarType.dateTime,
     ),
     r'transactionType': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'transactionType',
       type: IsarType.byte,
       enumMap: _ExpensetransactionTypeEnumValueMap,
     ),
     r'upiId': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'upiId',
       type: IsarType.string,
     )
@@ -148,11 +153,24 @@ const ExpenseSchema = CollectionSchema(
         )
       ],
     ),
+    r'category': IndexSchema(
+      id: -7560358558326323820,
+      name: r'category',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'category',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
     r'dedupeKey': IndexSchema(
       id: -6620796718844543204,
       name: r'dedupeKey',
-      unique: false,
-      replace: false,
+      unique: true,
+      replace: true,
       properties: [
         IndexPropertySchema(
           name: r'dedupeKey',
@@ -188,6 +206,7 @@ int _expenseEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  bytesCount += 3 + object.category.length * 3;
   bytesCount += 3 + object.currency.length * 3;
   bytesCount += 3 + object.dedupeKey.length * 3;
   bytesCount += 3 + object.merchant.length * 3;
@@ -217,17 +236,18 @@ void _expenseSerialize(
   writer.writeDouble(offsets[0], object.amount);
   writer.writeString(offsets[1], object.bankName);
   writer.writeString(offsets[2], object.cardLastFour);
-  writer.writeDateTime(offsets[3], object.createdAt);
-  writer.writeString(offsets[4], object.currency);
-  writer.writeString(offsets[5], object.dedupeKey);
-  writer.writeString(offsets[6], object.merchant);
-  writer.writeString(offsets[7], object.notes);
-  writer.writeString(offsets[8], object.rawSms);
-  writer.writeString(offsets[9], object.sender);
-  writer.writeByte(offsets[10], object.source.index);
-  writer.writeDateTime(offsets[11], object.timestamp);
-  writer.writeByte(offsets[12], object.transactionType.index);
-  writer.writeString(offsets[13], object.upiId);
+  writer.writeString(offsets[3], object.category);
+  writer.writeDateTime(offsets[4], object.createdAt);
+  writer.writeString(offsets[5], object.currency);
+  writer.writeString(offsets[6], object.dedupeKey);
+  writer.writeString(offsets[7], object.merchant);
+  writer.writeString(offsets[8], object.notes);
+  writer.writeString(offsets[9], object.rawSms);
+  writer.writeString(offsets[10], object.sender);
+  writer.writeByte(offsets[11], object.source.index);
+  writer.writeDateTime(offsets[12], object.timestamp);
+  writer.writeByte(offsets[13], object.transactionType.index);
+  writer.writeString(offsets[14], object.upiId);
 }
 
 Expense _expenseDeserialize(
@@ -240,22 +260,23 @@ Expense _expenseDeserialize(
   object.amount = reader.readDouble(offsets[0]);
   object.bankName = reader.readStringOrNull(offsets[1]);
   object.cardLastFour = reader.readStringOrNull(offsets[2]);
-  object.createdAt = reader.readDateTime(offsets[3]);
-  object.currency = reader.readString(offsets[4]);
-  object.dedupeKey = reader.readString(offsets[5]);
+  object.category = reader.readString(offsets[3]);
+  object.createdAt = reader.readDateTime(offsets[4]);
+  object.currency = reader.readString(offsets[5]);
+  object.dedupeKey = reader.readString(offsets[6]);
   object.id = id;
-  object.merchant = reader.readString(offsets[6]);
-  object.notes = reader.readStringOrNull(offsets[7]);
-  object.rawSms = reader.readString(offsets[8]);
-  object.sender = reader.readString(offsets[9]);
+  object.merchant = reader.readString(offsets[7]);
+  object.notes = reader.readStringOrNull(offsets[8]);
+  object.rawSms = reader.readString(offsets[9]);
+  object.sender = reader.readString(offsets[10]);
   object.source =
-      _ExpensesourceValueEnumMap[reader.readByteOrNull(offsets[10])] ??
+      _ExpensesourceValueEnumMap[reader.readByteOrNull(offsets[11])] ??
           ExpenseSource.sms;
-  object.timestamp = reader.readDateTime(offsets[11]);
+  object.timestamp = reader.readDateTime(offsets[12]);
   object.transactionType =
-      _ExpensetransactionTypeValueEnumMap[reader.readByteOrNull(offsets[12])] ??
+      _ExpensetransactionTypeValueEnumMap[reader.readByteOrNull(offsets[13])] ??
           TransactionType.debit;
-  object.upiId = reader.readStringOrNull(offsets[13]);
+  object.upiId = reader.readStringOrNull(offsets[14]);
   return object;
 }
 
@@ -273,29 +294,31 @@ P _expenseDeserializeProp<P>(
     case 2:
       return (reader.readStringOrNull(offset)) as P;
     case 3:
-      return (reader.readDateTime(offset)) as P;
-    case 4:
       return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readDateTime(offset)) as P;
     case 5:
       return (reader.readString(offset)) as P;
     case 6:
       return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
-    case 8:
       return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readStringOrNull(offset)) as P;
     case 9:
       return (reader.readString(offset)) as P;
     case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
       return (_ExpensesourceValueEnumMap[reader.readByteOrNull(offset)] ??
           ExpenseSource.sms) as P;
-    case 11:
-      return (reader.readDateTime(offset)) as P;
     case 12:
+      return (reader.readDateTime(offset)) as P;
+    case 13:
       return (_ExpensetransactionTypeValueEnumMap[
               reader.readByteOrNull(offset)] ??
           TransactionType.debit) as P;
-    case 13:
+    case 14:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -329,6 +352,61 @@ List<IsarLinkBase<dynamic>> _expenseGetLinks(Expense object) {
 
 void _expenseAttach(IsarCollection<dynamic> col, Id id, Expense object) {
   object.id = id;
+}
+
+extension ExpenseByIndex on IsarCollection<Expense> {
+  Future<Expense?> getByDedupeKey(String dedupeKey) {
+    return getByIndex(r'dedupeKey', [dedupeKey]);
+  }
+
+  Expense? getByDedupeKeySync(String dedupeKey) {
+    return getByIndexSync(r'dedupeKey', [dedupeKey]);
+  }
+
+  Future<bool> deleteByDedupeKey(String dedupeKey) {
+    return deleteByIndex(r'dedupeKey', [dedupeKey]);
+  }
+
+  bool deleteByDedupeKeySync(String dedupeKey) {
+    return deleteByIndexSync(r'dedupeKey', [dedupeKey]);
+  }
+
+  Future<List<Expense?>> getAllByDedupeKey(List<String> dedupeKeyValues) {
+    final values = dedupeKeyValues.map((e) => [e]).toList();
+    return getAllByIndex(r'dedupeKey', values);
+  }
+
+  List<Expense?> getAllByDedupeKeySync(List<String> dedupeKeyValues) {
+    final values = dedupeKeyValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'dedupeKey', values);
+  }
+
+  Future<int> deleteAllByDedupeKey(List<String> dedupeKeyValues) {
+    final values = dedupeKeyValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'dedupeKey', values);
+  }
+
+  int deleteAllByDedupeKeySync(List<String> dedupeKeyValues) {
+    final values = dedupeKeyValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'dedupeKey', values);
+  }
+
+  Future<Id> putByDedupeKey(Expense object) {
+    return putByIndex(r'dedupeKey', object);
+  }
+
+  Id putByDedupeKeySync(Expense object, {bool saveLinks = true}) {
+    return putByIndexSync(r'dedupeKey', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByDedupeKey(List<Expense> objects) {
+    return putAllByIndex(r'dedupeKey', objects);
+  }
+
+  List<Id> putAllByDedupeKeySync(List<Expense> objects,
+      {bool saveLinks = true}) {
+    return putAllByIndexSync(r'dedupeKey', objects, saveLinks: saveLinks);
+  }
 }
 
 extension ExpenseQueryWhereSort on QueryBuilder<Expense, Expense, QWhere> {
@@ -685,6 +763,51 @@ extension ExpenseQueryWhere on QueryBuilder<Expense, Expense, QWhereClause> {
               indexName: r'sender',
               lower: [],
               upper: [sender],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterWhereClause> categoryEqualTo(
+      String category) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'category',
+        value: [category],
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterWhereClause> categoryNotEqualTo(
+      String category) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'category',
+              lower: [],
+              upper: [category],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'category',
+              lower: [category],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'category',
+              lower: [category],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'category',
+              lower: [],
+              upper: [category],
               includeUpper: false,
             ));
       }
@@ -1090,6 +1213,136 @@ extension ExpenseQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'cardLastFour',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'category',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'category',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'category',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterFilterCondition> categoryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'category',
         value: '',
       ));
     });
@@ -2346,6 +2599,18 @@ extension ExpenseQuerySortBy on QueryBuilder<Expense, Expense, QSortBy> {
     });
   }
 
+  QueryBuilder<Expense, Expense, QAfterSortBy> sortByCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterSortBy> sortByCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.desc);
+    });
+  }
+
   QueryBuilder<Expense, Expense, QAfterSortBy> sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
@@ -2517,6 +2782,18 @@ extension ExpenseQuerySortThenBy
     });
   }
 
+  QueryBuilder<Expense, Expense, QAfterSortBy> thenByCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Expense, Expense, QAfterSortBy> thenByCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.desc);
+    });
+  }
+
   QueryBuilder<Expense, Expense, QAfterSortBy> thenByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
@@ -2684,6 +2961,13 @@ extension ExpenseQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Expense, Expense, QDistinct> distinctByCategory(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'category', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<Expense, Expense, QDistinct> distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
@@ -2781,6 +3065,12 @@ extension ExpenseQueryProperty
   QueryBuilder<Expense, String?, QQueryOperations> cardLastFourProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'cardLastFour');
+    });
+  }
+
+  QueryBuilder<Expense, String, QQueryOperations> categoryProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'category');
     });
   }
 

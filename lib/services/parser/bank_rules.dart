@@ -18,6 +18,9 @@ class BankRules {
     'spent',
     'paid',
     'purchase',
+    'withdrawn',
+    'sent',
+    'transaction of',
     'dr',
   ];
 
@@ -36,6 +39,26 @@ class BankRules {
     RegExp(r'\botp\b|\bone[ -]?time\s+password\b', caseSensitive: false),
     RegExp(
       r'\bupi\b.*\bcollect\s+request\b|\bcollect\s+request\b',
+      caseSensitive: false,
+    ),
+    // Promotional / marketing messages. Deliberately excludes "cashback" and
+    // "reward" since genuine debit confirmations often mention them.
+    RegExp(
+      r'%\s*off\b|\boff\s+up\s?to\b|\bflat\s+(?:INR|Rs\.?|₹)|\bdiscount\b|\boffer(?:s)?\b|\bcoupon\b|\bpromo\s*code\b|\bvoucher\b',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\bwin\b|\bcongratulations?\b|\blucky\s+draw\b',
+      caseSensitive: false,
+    ),
+    // Dues / reminders — money not spent yet.
+    RegExp(
+      r'\bemi\s+(?:due|reminder)\b|\bis\s+due\b|\bpayment\s+due\b|\bmin(?:imum)?\s+(?:amount\s+)?due\b|\bdue\s+on\b',
+      caseSensitive: false,
+    ),
+    // Loan / credit-line solicitations.
+    RegExp(
+      r'\bapply\s+now\b|\bpre-?approved\b|\bloan\s+offer\b|\bavail\s+(?:a\s+)?loan\b|\beligible\s+for\b',
       caseSensitive: false,
     ),
   ];

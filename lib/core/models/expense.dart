@@ -34,9 +34,18 @@ class Expense {
   @enumerated
   ExpenseSource source = ExpenseSource.sms;
 
+  // Denormalized category name (not a link) so the background isolate and
+  // JSON backup can handle it without extra plumbing. Rows created before
+  // this field existed deserialize as '' — treat '' as 'Other'.
+  @Index(type: IndexType.hash)
+  String category = 'Other';
+
   DateTime createdAt = DateTime.now();
 
-  @Index(type: IndexType.hash)
+  // Unique + replace closes the race between the foreground listener and
+  // the background isolate ingesting the same SMS: the second put replaces
+  // the first row instead of duplicating it.
+  @Index(type: IndexType.hash, unique: true, replace: true)
   String dedupeKey = '';
 
   String? notes;

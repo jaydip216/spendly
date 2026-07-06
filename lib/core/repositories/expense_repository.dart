@@ -63,6 +63,15 @@ class ExpenseRepository {
     });
   }
 
+  /// Atomically replaces all expenses: existing data is only cleared if the
+  /// whole write succeeds.
+  Future<void> replaceAll(List<Expense> expenses) async {
+    await _isar.writeTxn(() async {
+      await _isar.expenses.clear();
+      await _isar.expenses.putAll(expenses);
+    });
+  }
+
   Future<List<Expense>> searchAndFilter({
     String? query,
     DateTimeRange? dateRange,
@@ -81,8 +90,15 @@ class ExpenseRepository {
       }
 
       if (dateRange != null) {
+        // End date is inclusive for the whole day, even when the picker
+        // returns it at midnight.
+        final endExclusive = DateTime(
+          dateRange.end.year,
+          dateRange.end.month,
+          dateRange.end.day + 1,
+        );
         if (expense.timestamp.isBefore(dateRange.start) ||
-            expense.timestamp.isAfter(dateRange.end)) {
+            !expense.timestamp.isBefore(endExclusive)) {
           return false;
         }
       }
