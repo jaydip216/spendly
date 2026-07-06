@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/providers/providers.dart';
 import '../features/analytics/analytics_screen.dart';
 import '../features/backup/backup_screen.dart';
+import '../features/categories/category_management_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/manual_entry/manual_entry_screen.dart';
 
@@ -26,6 +27,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/backup',
       builder: (context, state) => const BackupScreen(),
+    ),
+    GoRoute(
+      path: '/categories',
+      builder: (context, state) => const CategoryManagementScreen(),
     ),
   ],
 );

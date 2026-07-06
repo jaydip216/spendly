@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/expense.dart';
+import 'expense_detail_sheet.dart';
 
 class ExpenseCard extends StatelessWidget {
   const ExpenseCard({super.key, required this.expense});
@@ -23,68 +24,78 @@ class ExpenseCard extends StatelessWidget {
         : expense.merchant;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    merchant,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => showExpenseDetailSheet(context, expense),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      merchant,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  amountFormat.format(expense.amount),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: isDebit ? scheme.error : scheme.primary,
+                  const SizedBox(width: 10),
+                  Text(
+                    amountFormat.format(expense.amount),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: isDebit ? scheme.error : scheme.primary,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${expense.sender} • ${dateFormat.format(expense.timestamp)}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _TagChip(
-                  label: isDebit ? 'DEBIT' : 'CREDIT',
-                  foreground: isDebit
-                      ? scheme.onErrorContainer
-                      : scheme.onPrimaryContainer,
-                  background: isDebit
-                      ? scheme.errorContainer
-                      : scheme.primaryContainer,
-                ),
-                if (expense.upiId != null)
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${expense.sender} • ${dateFormat.format(expense.timestamp)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
                   _TagChip(
-                    label: 'UPI ${expense.upiId}',
-                    foreground: scheme.onSecondaryContainer,
-                    background: scheme.secondaryContainer,
+                    label: isDebit ? 'DEBIT' : 'CREDIT',
+                    foreground: isDebit
+                        ? scheme.onErrorContainer
+                        : scheme.onPrimaryContainer,
+                    background: isDebit
+                        ? scheme.errorContainer
+                        : scheme.primaryContainer,
                   ),
-                if (expense.cardLastFour != null)
-                  _TagChip(
-                    label: 'Card ••••${expense.cardLastFour}',
-                    foreground: scheme.onSurface,
-                    background: scheme.surfaceContainerHighest,
-                  ),
-              ],
-            ),
-          ],
+                  if (expense.upiId != null)
+                    _TagChip(
+                      label: 'UPI ${expense.upiId}',
+                      foreground: scheme.onSecondaryContainer,
+                      background: scheme.secondaryContainer,
+                    ),
+                  if (expense.cardLastFour != null)
+                    _TagChip(
+                      label: 'Card ••••${expense.cardLastFour}',
+                      foreground: scheme.onSurface,
+                      background: scheme.surfaceContainerHighest,
+                    ),
+                  if (expense.category.isNotEmpty)
+                    _TagChip(
+                      label: expense.category,
+                      foreground: scheme.onTertiaryContainer,
+                      background: scheme.tertiaryContainer,
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

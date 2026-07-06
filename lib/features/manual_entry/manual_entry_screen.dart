@@ -20,6 +20,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
 
   DateTime _selectedDate = DateTime.now();
   TransactionType _transactionType = TransactionType.debit;
+  String _selectedCategory = 'Other';
   bool _isSubmitting = false;
 
   @override
@@ -53,6 +54,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       ..timestamp = _selectedDate
       ..transactionType = _transactionType
       ..source = ExpenseSource.manual
+      ..category = _selectedCategory
       ..notes = _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim()
@@ -172,6 +174,58 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     ],
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+
+              // Category
+              Consumer(
+                builder: (context, ref, _) {
+                  final categoriesAsync = ref.watch(categoriesProvider);
+                  return categoriesAsync.when(
+                    data: (categories) {
+                      final names =
+                          categories.map((c) => c.name).toList();
+                      if (!names.contains(_selectedCategory) &&
+                          names.isNotEmpty) {
+                        _selectedCategory = names.contains('Other')
+                            ? 'Other'
+                            : names.first;
+                      }
+                      return DropdownButtonFormField<String>(
+                        key: const Key('category_field'),
+                        initialValue: _selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          for (final category in categories)
+                            DropdownMenuItem(
+                              value: category.name,
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 6,
+                                    backgroundColor:
+                                        Color(category.colorValue),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(category.name),
+                                ],
+                              ),
+                            ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _selectedCategory = value);
+                          }
+                        },
+                      );
+                    },
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
+                  );
+                },
               ),
               const SizedBox(height: 16),
 

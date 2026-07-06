@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/models/expense.dart';
 import '../../core/providers/providers.dart';
@@ -11,6 +10,7 @@ import '../../services/sms/sms_ingestion_service.dart';
 import '../expenses/widgets/expense_card.dart';
 import '../onboarding/transparency_screen.dart';
 import 'monthly_view_screen.dart';
+import 'widgets/spend_summary_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -106,8 +106,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 child: const TabBar(
                   tabs: [
+                    Tab(text: 'This Month'),
                     Tab(text: 'All Expenses'),
-                    Tab(text: 'Monthly'),
                   ],
                 ),
               ),
@@ -129,9 +129,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onSelected: (value) {
                 if (value == 'backup') {
                   context.go('/backup');
+                } else if (value == 'categories') {
+                  context.go('/categories');
                 }
               },
               itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'categories',
+                  child: Text('Categories'),
+                ),
                 const PopupMenuItem(
                   value: 'backup',
                   child: Text('Backup & Restore'),
@@ -159,8 +165,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           child: const TabBarView(
             children: [
-              _AllExpensesTab(),
               MonthlyViewScreen(),
+              _AllExpensesTab(),
             ],
           ),
         ),
@@ -218,6 +224,8 @@ class _AllExpensesTabState extends ConsumerState<_AllExpensesTab> {
       child: Column(
         children: [
           const _BackupNudgeBanner(),
+          const SpendSummaryCard(),
+          const SizedBox(height: 10),
           // Search bar
           TextField(
             key: const Key('search_bar'),
@@ -307,29 +315,12 @@ class _AllExpensesTabState extends ConsumerState<_AllExpensesTab> {
                       : const _EmptyExpensesState();
                 }
 
-                final debitTotal = expenses
-                    .where(
-                      (item) => item.transactionType == TransactionType.debit,
-                    )
-                    .fold<double>(0, (sum, item) => sum + item.amount);
-
-                return Column(
-                  children: [
-                    _DashboardOverview(
-                      totalSpent: debitTotal,
-                      count: expenses.length,
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: expenses.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          return ExpenseCard(expense: expenses[index]);
-                        },
-                      ),
-                    ),
-                  ],
+                return ListView.separated(
+                  itemCount: expenses.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    return ExpenseCard(expense: expenses[index]);
+                  },
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -438,85 +429,6 @@ class _EmptyExpensesState extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _DashboardOverview extends StatelessWidget {
-  const _DashboardOverview({required this.totalSpent, required this.count});
-
-  final double totalSpent;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final amountFormat = NumberFormat.currency(
-      symbol: '₹',
-      decimalDigits: 2,
-      locale: 'en_IN',
-    );
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: _MetricTile(
-                label: 'Total spend',
-                value: amountFormat.format(totalSpent),
-                icon: Icons.account_balance_wallet_rounded,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricTile(
-                label: 'Transactions',
-                value: '$count',
-                icon: Icons.receipt_long_rounded,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 10),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ],
       ),
     );
   }

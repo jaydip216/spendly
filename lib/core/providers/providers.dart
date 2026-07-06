@@ -138,6 +138,42 @@ final filteredExpensesProvider = FutureProvider<List<Expense>>((ref) {
   );
 });
 
+/// Custom range for the spend summary card. Null means "current month".
+final spendRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
+
+/// Debit total + transaction count within [spendRangeProvider] (or the
+/// current month when no custom range is set). End date is inclusive.
+final totalSpentProvider = Provider<AsyncValue<({double total, int count})>>((
+  ref,
+) {
+  final expensesAsync = ref.watch(allExpensesProvider);
+  final range = ref.watch(spendRangeProvider);
+
+  return expensesAsync.whenData((expenses) {
+    final DateTime start;
+    final DateTime endExclusive;
+    if (range == null) {
+      final now = DateTime.now();
+      start = DateTime(now.year, now.month, 1);
+      endExclusive = DateTime(now.year, now.month + 1, 1);
+    } else {
+      start = DateTime(range.start.year, range.start.month, range.start.day);
+      endExclusive = DateTime(range.end.year, range.end.month, range.end.day + 1);
+    }
+
+    double total = 0;
+    int count = 0;
+    for (final expense in expenses) {
+      if (expense.transactionType != TransactionType.debit) continue;
+      if (expense.timestamp.isBefore(start)) continue;
+      if (!expense.timestamp.isBefore(endExclusive)) continue;
+      total += expense.amount;
+      count++;
+    }
+    return (total: total, count: count);
+  });
+});
+
 final selectedMonthProvider = StateProvider<DateTime>((ref) {
   final now = DateTime.now();
   return DateTime(now.year, now.month);
