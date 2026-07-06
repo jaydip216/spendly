@@ -34,6 +34,12 @@ class Expense {
   @enumerated
   ExpenseSource source = ExpenseSource.sms;
 
+  // Denormalized category name (not a link) so the background isolate and
+  // JSON backup can handle it without extra plumbing. Rows created before
+  // this field existed deserialize as '' — treat '' as 'Other'.
+  @Index(type: IndexType.hash)
+  String category = 'Other';
+
   DateTime createdAt = DateTime.now();
 
   // Unique + replace closes the race between the foreground listener and

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/models/expense.dart';
 import '../../core/repositories/expense_repository.dart';
+import '../categorization/category_rules.dart';
 import '../parser/transaction_parser.dart';
 
 String buildSmsDedupeKey({
@@ -169,6 +170,11 @@ class SmsIngestionService {
       ..transactionType = parsed.transactionType
       ..source = ExpenseSource.sms
       ..rawSms = body
+      ..category = CategoryRules.categorize(
+        merchant: parsed.merchant ?? '',
+        upiId: parsed.upiId,
+        rawText: body,
+      )
       ..createdAt = DateTime.now()
       ..dedupeKey = dedupeKey;
 
@@ -227,6 +233,11 @@ Future<void> backgroundMessageHandler(SmsMessage message) async {
     ..transactionType = parsed.transactionType
     ..source = ExpenseSource.sms
     ..rawSms = body
+    ..category = CategoryRules.categorize(
+      merchant: parsed.merchant ?? '',
+      upiId: parsed.upiId,
+      rawText: body,
+    )
     ..createdAt = DateTime.now()
     ..dedupeKey = dedupeKey;
 

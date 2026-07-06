@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/category.dart';
 import '../models/expense.dart';
+import '../repositories/category_repository.dart';
 import '../repositories/expense_repository.dart';
 import '../../services/backup/backup_service.dart';
 import '../../services/backup/google_drive_service.dart';
@@ -14,6 +16,7 @@ const onboardingSeenKey = 'onboarding_seen';
 const initialSmsSyncDoneKey = 'initial_sms_sync_done';
 const themeModePreferenceKey = 'theme_mode';
 const lastBackupTimestampKey = 'last_backup_timestamp';
+const categoriesBackfillDoneKey = 'categories_backfill_done';
 
 class ThemeModeController extends StateNotifier<ThemeMode> {
   ThemeModeController(this._prefs)
@@ -69,6 +72,17 @@ final expenseRepositoryProvider = Provider<ExpenseRepository>(
     'expenseRepositoryProvider must be overridden in main',
   ),
 );
+
+final categoryRepositoryProvider = Provider<CategoryRepository>(
+  (ref) => throw UnimplementedError(
+    'categoryRepositoryProvider must be overridden in main',
+  ),
+);
+
+final categoriesProvider = StreamProvider<List<Category>>((ref) {
+  final repo = ref.watch(categoryRepositoryProvider);
+  return repo.watchAll();
+});
 
 final transactionParserProvider = Provider<TransactionParser>(
   (ref) => throw UnimplementedError(
