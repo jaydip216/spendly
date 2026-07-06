@@ -27,7 +27,7 @@ Future<void> main() async {
     repository: repository,
     parser: parser,
   );
-  final backupService = BackupService(repository);
+  final backupService = BackupService(isar, repository);
   final googleDriveService = GoogleDriveService(backupService);
 
   runApp(
