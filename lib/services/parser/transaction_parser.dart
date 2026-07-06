@@ -106,8 +106,24 @@ class TransactionParser {
     return null;
   }
 
+  /// Balance clauses like "Avl Bal Rs 5000 CR" contain "cr"/"dr" markers that
+  /// would otherwise pollute classification of the actual transaction.
+  static final RegExp _balanceClauseRegex = RegExp(
+    r'\b(?:avl|available|avbl|total|closing)\.?\s*bal(?:ance)?\b[^.]*',
+    caseSensitive: false,
+  );
+
   TransactionType? _classify(String message) {
-    final text = message.toLowerCase();
+    final text = message.replaceAll(_balanceClauseRegex, ' ').toLowerCase();
+
+    // Debit keywords take priority: a genuine debit SMS may also mention a
+    // credit ("debited ... credited to beneficiary"), but not vice versa.
+    for (final keyword in BankRules.debitKeywords) {
+      final pattern = RegExp(r'\b' + RegExp.escape(keyword) + r'\b');
+      if (pattern.hasMatch(text)) {
+        return TransactionType.debit;
+      }
+    }
 
     for (final keyword in BankRules.creditKeywords) {
       final pattern = RegExp(r'\b' + RegExp.escape(keyword) + r'\b');
@@ -116,27 +132,8 @@ class TransactionParser {
       }
     }
 
-    for (final keyword in BankRules.debitKeywords) {
-      final pattern = RegExp(r'\b' + RegExp.escape(keyword) + r'\b');
-      if (pattern.hasMatch(text)) {
-        return TransactionType.debit;
-      }
-    }
-
-    final hasTransactionalContext = RegExp(
-      r'\b(upi|card|a\/c|account|atm|transaction|txn|trxn|withdrawn|pos|swipe)\b',
-      caseSensitive: false,
-    ).hasMatch(text);
-
-    final hasDirectionalHint = RegExp(
-      r'\b(at|to|via|using|from|towards)\b',
-      caseSensitive: false,
-    ).hasMatch(text);
-
-    if (hasTransactionalContext && hasDirectionalHint) {
-      return TransactionType.debit;
-    }
-
+    // No explicit keyword: ambiguous message (often promotional), drop it
+    // rather than guess.
     return null;
   }
 

@@ -188,6 +188,51 @@ void main() {
       body: 'UPI collect request of Rs.500 from abc@okicici pending approval.',
       shouldParse: false,
     ),
+    const SmsCase(
+      name: 'Debit with CR balance suffix (must parse as debit)',
+      sender: 'SBIINB',
+      body:
+          'Rs 500.00 debited from A/c XX1234 to grocery.mart@oksbi on 04-05-26. Avl Bal Rs 5,000.00 CR.',
+      shouldParse: true,
+      amount: 500.0,
+      upiId: 'grocery.mart@oksbi',
+    ),
+    const SmsCase(
+      name: 'Promo percent-off on card (should ignore)',
+      sender: 'VM-AMAZON',
+      body:
+          'Get 50% off up to Rs.100 on your card at Amazon this weekend. Shop now!',
+      shouldParse: false,
+    ),
+    const SmsCase(
+      name: 'EMI due reminder (should ignore)',
+      sender: 'HDFCBK',
+      body:
+          'EMI of Rs.4,500 for your HDFC loan account XX8899 is due on 10-05-26. Please maintain balance.',
+      shouldParse: false,
+    ),
+    const SmsCase(
+      name: 'Pre-approved loan offer (should ignore)',
+      sender: 'VM-BAJAJF',
+      body:
+          'You are eligible for a pre-approved loan of Rs.2,00,000. Apply now via the app.',
+      shouldParse: false,
+    ),
+    const SmsCase(
+      name: 'Ambiguous amount mention, no txn keyword (should ignore)',
+      sender: 'VM-STORE',
+      body: 'Your order worth Rs.999 at MegaStore will arrive tomorrow.',
+      shouldParse: false,
+    ),
+    const SmsCase(
+      name: 'Genuine debit mentioning cashback (must parse)',
+      sender: 'PAYTM',
+      body:
+          'Rs.120 paid to CAFE COFFEE DAY via Paytm UPI. Earn 5% cashback on your next order. Ref 55667788.',
+      shouldParse: true,
+      amount: 120.0,
+      merchantContains: 'CAFE COFFEE DAY',
+    ),
   ];
 
   var passed = 0;

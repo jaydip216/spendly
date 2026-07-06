@@ -65,6 +65,13 @@ class FakeExpenseRepository implements ExpenseRepository {
   Future<void> saveAll(List<Expense> expenses) async {}
 
   @override
+  Future<void> replaceAll(List<Expense> expenses) async {
+    _expenses
+      ..clear()
+      ..addAll(expenses);
+  }
+
+  @override
   Stream<List<Expense>> watchMonthlyExpenses(DateTime month) =>
       Stream.value([]);
 

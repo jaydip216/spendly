@@ -27,11 +27,12 @@ class BackupService {
     if (version == null || version > currentSchemaVersion) {
       throw FormatException('Unsupported schema version: $version');
     }
+    // Parse the entire payload before touching the database so a malformed
+    // backup cannot wipe existing data.
     final expenseList = (data['expenses'] as List)
         .map((e) => _mapToExpense(e as Map<String, dynamic>))
         .toList();
-    await _repository.clearAll();
-    await _repository.saveAll(expenseList);
+    await _repository.replaceAll(expenseList);
   }
 
   Map<String, dynamic> _expenseToMap(Expense e) {

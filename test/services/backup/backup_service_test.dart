@@ -172,6 +172,29 @@ void main() {
       );
     });
 
+    test('failed import leaves existing data intact', () async {
+      await repo.saveExpense(makeExpense(merchant: 'Keeper', amount: 42.0));
+
+      // Valid version but malformed expense entry: parsing fails before
+      // any database write.
+      final malformed = jsonEncode({
+        'schemaVersion': 1,
+        'exportedAt': DateTime.now().toIso8601String(),
+        'expenses': [
+          {'merchant': 'Broken'}, // missing required amount/timestamp
+        ],
+      });
+
+      await expectLater(
+        () => backupService.importFromJson(malformed),
+        throwsA(anything),
+      );
+
+      final all = await repo.getAllExpenses();
+      expect(all.length, 1);
+      expect(all.first.merchant, 'Keeper');
+    });
+
     test('throws FormatException when schemaVersion is null', () async {
       final badJson = jsonEncode({
         'exportedAt': DateTime.now().toIso8601String(),
