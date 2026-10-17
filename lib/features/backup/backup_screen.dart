@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -5,9 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../app/format.dart';
+import '../../app/theme/spendly_theme.dart';
+import '../../app/widgets/classical.dart';
 import '../../core/providers/providers.dart';
 import '../../services/backup/google_drive_service.dart';
 
+/// The only insurance Spendly has: there is no server to restore from.
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
 
@@ -31,9 +37,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   void _showSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _recordBackupTimestamp() async {
@@ -50,8 +56,19 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     await _run(() async {
       final backupService = ref.read(backupServiceProvider);
       final json = await backupService.exportToJson();
-      await Share.share(json, subject: 'Spendly Backup');
-      await _recordBackupTimestamp();
+      final result = await Share.shareXFiles(
+        [
+          XFile.fromData(
+            Uint8List.fromList(utf8.encode(json)),
+            mimeType: 'application/json',
+          ),
+        ],
+        fileNameOverrides: ['spendly-backup.json'],
+        subject: 'Spendly Backup',
+      );
+      if (result.status == ShareResultStatus.success) {
+        await _recordBackupTimestamp();
+      }
     });
   }
 
@@ -68,7 +85,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       String? content;
 
       if (file.bytes != null) {
-        content = String.fromCharCodes(file.bytes!);
+        content = utf8.decode(file.bytes!);
       } else if (file.path != null) {
         content = await File(file.path!).readAsString();
       }
@@ -115,54 +132,100 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = SpendlyTokens.of(context);
+    final lastBackup = ref.watch(lastBackupProvider);
+    final entryCount = ref.watch(allExpensesProvider).valueOrNull?.length;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Backup & Restore')),
+      appBar: AppBar(leading: const BackButton(), title: const Text('Backup')),
       body: Stack(
         children: [
-          ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _SectionHeader(title: 'Local Backup'),
-              const SizedBox(height: 8),
-              _BackupActionCard(
-                key: const Key('export_to_file_button'),
-                icon: Icons.upload_file_rounded,
-                title: 'Export to File',
-                subtitle: 'Save a JSON backup to share or store locally.',
-                onTap: _loading ? null : _exportToFile,
-              ),
-              const SizedBox(height: 12),
-              _BackupActionCard(
-                key: const Key('import_from_file_button'),
-                icon: Icons.download_rounded,
-                title: 'Import from File',
-                subtitle: 'Restore expenses from a previously exported JSON file.',
-                onTap: _loading ? null : _importFromFile,
-              ),
-              const SizedBox(height: 24),
-              _SectionHeader(title: 'Google Drive'),
-              const SizedBox(height: 8),
-              _BackupActionCard(
-                key: const Key('backup_to_drive_button'),
-                icon: Icons.cloud_upload_rounded,
-                title: 'Backup to Google Drive',
-                subtitle: 'Upload your expenses to Google Drive.',
-                onTap: _loading ? null : _backupToDrive,
-              ),
-              const SizedBox(height: 12),
-              _BackupActionCard(
-                key: const Key('restore_from_drive_button'),
-                icon: Icons.cloud_download_rounded,
-                title: 'Restore from Google Drive',
-                subtitle: 'Download and restore expenses from Google Drive.',
-                onTap: _loading ? null : _restoreFromDrive,
-              ),
-            ],
+          SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (lastBackup == null)
+                  Callout(
+                    title: 'Backup is off',
+                    body:
+                        'Your ${entryCount ?? 'saved'} spends live only in this '
+                        "app's storage. Clearing app data, a factory reset or a "
+                        'lost phone takes them with it.',
+                  )
+                else
+                  Callout(
+                    title: 'Last backed up ${dayMonthYear.format(lastBackup)}',
+                    body:
+                        'Anything recorded since then exists only on this phone. '
+                        'Export again whenever it matters.',
+                  ),
+                const SizedBox(height: 24),
+
+                const SectionLabel('File backup'),
+                const SizedBox(height: 10),
+                Text(
+                  'Spendly writes a single JSON file with every spend, note and '
+                  'category, and hands it to the Android share sheet. Put it '
+                  'wherever you like — Files, Drive, a chat with yourself.',
+                  style: tokens.body(12.5, color: tokens.muted(0.62)),
+                ),
+                const SizedBox(height: 16),
+                _BackupAction(
+                  key: const Key('export_to_file_button'),
+                  icon: Icons.file_upload_outlined,
+                  title: 'Export to File',
+                  subtitle: 'Save a JSON backup to share or store locally.',
+                  onTap: _loading ? null : _exportToFile,
+                ),
+                _BackupAction(
+                  key: const Key('import_from_file_button'),
+                  icon: Icons.file_download_outlined,
+                  title: 'Import from File',
+                  subtitle:
+                      'Restore expenses from a previously exported JSON file.',
+                  bottomRule: true,
+                  onTap: _loading ? null : _importFromFile,
+                ),
+                const SizedBox(height: 24),
+
+                const SectionLabel('Google Drive'),
+                const SizedBox(height: 10),
+                Text(
+                  'The same file, uploaded to your own Drive. Spendly only ever '
+                  'touches the one file it wrote.',
+                  style: tokens.body(12.5, color: tokens.muted(0.62)),
+                ),
+                const SizedBox(height: 16),
+                _BackupAction(
+                  key: const Key('backup_to_drive_button'),
+                  icon: Icons.cloud_upload_outlined,
+                  title: 'Backup to Google Drive',
+                  subtitle: 'Upload your expenses to Google Drive.',
+                  onTap: _loading ? null : _backupToDrive,
+                ),
+                _BackupAction(
+                  key: const Key('restore_from_drive_button'),
+                  icon: Icons.cloud_download_outlined,
+                  title: 'Restore from Google Drive',
+                  subtitle: 'Download and restore expenses from Google Drive.',
+                  bottomRule: true,
+                  onTap: _loading ? null : _restoreFromDrive,
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Importing replaces everything currently in the app — it does '
+                  'not merge. Nothing is written unless the whole file reads '
+                  'cleanly.',
+                  style: tokens.body(11.5, color: tokens.muted(0.48)),
+                ),
+              ],
+            ),
           ),
           if (_loading)
-            const ColoredBox(
-              color: Color(0x44000000),
-              child: Center(child: CircularProgressIndicator()),
+            ColoredBox(
+              color: tokens.background.withValues(alpha: 0.7),
+              child: const Center(child: CircularProgressIndicator()),
             ),
         ],
       ),
@@ -170,45 +233,33 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-    );
-  }
-}
-
-class _BackupActionCard extends StatelessWidget {
-  const _BackupActionCard({
+class _BackupAction extends StatelessWidget {
+  const _BackupAction({
     super.key,
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.bottomRule = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final bool bottomRule;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle),
+    return Opacity(
+      opacity: onTap == null ? 0.45 : 1,
+      child: ListRow(
+        title: title,
+        subtitle: subtitle,
+        leadingIcon: icon,
+        showChevron: true,
+        bottomRule: bottomRule,
         onTap: onTap,
-        enabled: onTap != null,
       ),
     );
   }

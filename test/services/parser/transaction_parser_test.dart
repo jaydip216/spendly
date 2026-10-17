@@ -1,3 +1,4 @@
+import 'misclassification_cases.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spendly/core/models/expense.dart';
 import 'package:spendly/services/parser/parsed_transaction.dart';
@@ -11,12 +12,25 @@ void main() {
     return parser.parse(sender: sender, body: body, timestamp: timestamp);
   }
 
+  group('OTP and credit regression cases', () {
+    for (final body in rejectedMessages) {
+      test('rejects $body', () => expect(parse('HDFCBK', body), isNull));
+    }
+    for (final body in acceptedMessages) {
+      test('accepts $body', () {
+        final result = parse('HDFCBK', body);
+        expect(result, isNotNull);
+        expect(result!.amount, 500);
+      });
+    }
+  });
+
   group('classification', () {
     test('debit with CR balance suffix is parsed as debit, not credit', () {
       final parsed = parse(
         'SBIINB',
         'Rs 500.00 debited from A/c XX1234 to shop@oksbi on 04-05-26. '
-        'Avl Bal Rs 5,000.00 CR.',
+            'Avl Bal Rs 5,000.00 CR.',
       );
       expect(parsed, isNotNull);
       expect(parsed!.transactionType, TransactionType.debit);
@@ -27,7 +41,7 @@ void main() {
       final parsed = parse(
         'HDFCBK',
         'Rs 250 debited from A/c XX1111 and credited to beneficiary '
-        'john@okhdfc. Ref 998877.',
+            'john@okhdfc. Ref 998877.',
       );
       expect(parsed, isNotNull);
       expect(parsed!.transactionType, TransactionType.debit);
@@ -37,7 +51,7 @@ void main() {
       final parsed = parse(
         'HDFCBK',
         'INR 75,000.00 credited to your account XX8899 on 01-05-26 '
-        'by ACME TECH PVT LTD.',
+            'by ACME TECH PVT LTD.',
       );
       expect(parsed, isNull);
     });
@@ -50,14 +64,16 @@ void main() {
       expect(parsed, isNull);
     });
 
-    test('ambiguous message with amount but no transaction keyword is dropped',
-        () {
-      final parsed = parse(
-        'VM-STORE',
-        'Your order worth Rs.999 at MegaStore will arrive tomorrow.',
-      );
-      expect(parsed, isNull);
-    });
+    test(
+      'ambiguous message with amount but no transaction keyword is dropped',
+      () {
+        final parsed = parse(
+          'VM-STORE',
+          'Your order worth Rs.999 at MegaStore will arrive tomorrow.',
+        );
+        expect(parsed, isNull);
+      },
+    );
   });
 
   group('promotional filtering', () {
@@ -73,7 +89,7 @@ void main() {
       final parsed = parse(
         'VK-SHOPPY',
         'Get Rs.500 cashback on shopping above Rs.2999. '
-        'Offer valid till midnight. Tap now!',
+            'Offer valid till midnight. Tap now!',
       );
       expect(parsed, isNull);
     });
@@ -98,7 +114,7 @@ void main() {
       final parsed = parse(
         'PAYTM',
         'Rs.120 paid to CAFE COFFEE DAY via Paytm UPI. '
-        'Earn 5% cashback on your next order. Ref 55667788.',
+            'Earn 5% cashback on your next order. Ref 55667788.',
       );
       expect(parsed, isNotNull);
       expect(parsed!.amount, 120.0);
@@ -110,7 +126,7 @@ void main() {
       final parsed = parse(
         'SBICRD',
         'Rs.60.00 spent on your SBI Credit Card ending with 4815 '
-        'at MrSHIVANNA on 03-05-26 via UPI (Ref No. 383676481236).',
+            'at MrSHIVANNA on 03-05-26 via UPI (Ref No. 383676481236).',
       );
       expect(parsed, isNotNull);
       expect(parsed!.amount, 60.0);
@@ -121,7 +137,7 @@ void main() {
       final parsed = parse(
         'SBIINB',
         'Rs.500.00 withdrawn from A/C XX5544 on 03-05-26 at SBI ATM '
-        'KORAMANGALA. Avl Bal Rs.8,950.00',
+            'KORAMANGALA. Avl Bal Rs.8,950.00',
       );
       expect(parsed, isNotNull);
       expect(parsed!.amount, 500.0);
@@ -131,7 +147,7 @@ void main() {
       final parsed = parse(
         'HDFCBK',
         'INR 155.00 sent from A/c XX1001 to merchant.pay@okaxis via UPI '
-        'on 03/05/2026. Ref 10998877.',
+            'on 03/05/2026. Ref 10998877.',
       );
       expect(parsed, isNotNull);
       expect(parsed!.upiId, 'merchant.pay@okaxis');
@@ -141,7 +157,7 @@ void main() {
       final parsed = parse(
         'ICICIB',
         'A transaction of INR 3,000.00 on ICICI Bank Card xx7421 '
-        'at INDIAN OIL has been processed.',
+            'at INDIAN OIL has been processed.',
       );
       expect(parsed, isNotNull);
       expect(parsed!.amount, 3000.0);
@@ -153,7 +169,7 @@ void main() {
       final parsed = parse(
         'ICICIB',
         'OTP sent to mobile for adding beneficiary. Do not share. '
-        'Ref amount Rs.5000',
+            'Ref amount Rs.5000',
       );
       expect(parsed, isNull);
     });
@@ -162,7 +178,7 @@ void main() {
       final parsed = parse(
         'HDFCBK',
         'Your monthly statement for card XX1234 has been sent. '
-        'Total due INR 1250.00 by 10 May.',
+            'Total due INR 1250.00 by 10 May.',
       );
       expect(parsed, isNull);
     });

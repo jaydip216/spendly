@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format.dart';
+import '../../app/theme/spendly_theme.dart';
+import '../../app/widgets/classical.dart';
 import '../../core/models/category.dart';
+import '../../core/models/expense.dart';
 import '../../core/providers/providers.dart';
 
+/// Warm, low-chroma swatches so the charts stay in the same family as the
+/// rest of the system rather than turning into a paint chart.
 const _colorChoices = <int>[
-  0xFFEF6C00, // orange
-  0xFF2E7D32, // green
-  0xFF1565C0, // blue
-  0xFF6A1B9A, // purple
-  0xFF00838F, // cyan
-  0xFFC62828, // red
-  0xFFAD1457, // pink
-  0xFF4E342E, // brown
-  0xFF37474F, // blue grey
-  0xFF9E9E9E, // grey
+  0xFFB68235, // gold
+  0xFFA06F24, // deep gold
+  0xFF7D5411, // bronze
+  0xFFB39A72, // sand
+  0xFF8A8177, // stone
+  0xFF6D675F, // slate
+  0xFF4E342E, // umber
+  0xFF37474F, // ink blue
+  0xFF5A6B5D, // sage
+  0xFF8D2F22, // rust
 ];
 
 class CategoryManagementScreen extends ConsumerWidget {
@@ -22,63 +28,112 @@ class CategoryManagementScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = SpendlyTokens.of(context);
     final categoriesAsync = ref.watch(categoriesProvider);
+    final expenses =
+        ref.watch(allExpensesProvider).valueOrNull ?? const <Expense>[];
+
+    final spendByCategory = <String, double>{};
+    for (final expense in expenses) {
+      if (expense.transactionType != TransactionType.debit) continue;
+      final name = expense.category.isEmpty ? 'Other' : expense.category;
+      spendByCategory[name] = (spendByCategory[name] ?? 0) + expense.amount;
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Categories')),
-      floatingActionButton: FloatingActionButton(
-        key: const Key('add_category_button'),
-        tooltip: 'Add category',
-        onPressed: () => _showCategoryDialog(context, ref),
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: const Text('Categories'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: ClassicalButton(
+              key: const Key('add_category_button'),
+              label: 'Add',
+              variant: ClassicalButtonVariant.ghost,
+              fontSize: 12,
+              onPressed: () => _showCategoryDialog(context, ref),
+            ),
+          ),
+        ],
       ),
       body: categoriesAsync.when(
-        data: (categories) => ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: categories.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            return Card(
-              child: ListTile(
-                leading: CircleAvatar(
-                  radius: 12,
-                  backgroundColor: Color(category.colorValue),
-                ),
-                title: Text(
-                  category.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: category.isDefault ? const Text('Default') : null,
-                trailing: category.isDefault
-                    ? null
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'Rename',
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () => _showCategoryDialog(
-                              context,
-                              ref,
-                              existing: category,
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Delete',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () =>
-                                _confirmDelete(context, ref, category),
-                          ),
-                        ],
-                      ),
-              ),
-            );
-          },
-        ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
-            Center(child: Text('Failed to load categories: $error')),
+            EmptyState(title: 'Could not load categories', message: '$error'),
+        data: (categories) => ListView(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
+          children: [
+            Text(
+              'Spendly guesses a category from the merchant name. Rename one, '
+              'or move a spend, and every past and future entry follows.',
+              style: tokens.body(12.5, color: tokens.muted(0.58)),
+            ),
+            const SizedBox(height: 18),
+            for (final category in categories)
+              InkWell(
+                onTap: () =>
+                    _showCategoryDialog(context, ref, existing: category),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: tokens.divider)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 11,
+                        height: 11,
+                        color: Color(category.colorValue),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              category.name,
+                              style: tokens.body(14, height: 1.3),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              category.isDefault
+                                  ? 'Built in · auto-assigned from merchant '
+                                        'keywords'
+                                  : 'Yours · rename, recolour or remove',
+                              style: tokens.body(
+                                11.5,
+                                color: tokens.muted(0.5),
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        rupeesWithSymbol(spendByCategory[category.name] ?? 0),
+                        style: tokens.figure(15),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: tokens.muted(0.35),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const Rule(),
+            const SizedBox(height: 18),
+            Text(
+              'Deleting a category moves its spends to Other; it never deletes '
+              'spends.',
+              style: tokens.body(11.5, color: tokens.muted(0.45)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -88,21 +143,25 @@ class CategoryManagementScreen extends ConsumerWidget {
     WidgetRef ref,
     Category category,
   ) async {
+    final tokens = SpendlyTokens.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete "${category.name}"?'),
         content: const Text(
-          'Expenses in this category will be moved to "Other".',
+          'Its spends move to Other. Nothing is removed from your log.',
         ),
         actions: [
-          TextButton(
+          ClassicalButton(
+            label: 'Keep it',
+            variant: ClassicalButtonVariant.secondary,
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          ClassicalButton(
+            label: 'Delete',
+            foreground: tokens.danger,
+            borderColor: tokens.danger,
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -114,88 +173,154 @@ class CategoryManagementScreen extends ConsumerWidget {
   }
 
   Future<void> _showCategoryDialog(
-    BuildContext context,
+    BuildContext screenContext,
     WidgetRef ref, {
     Category? existing,
   }) async {
+    final tokens = SpendlyTokens.of(screenContext);
     final nameController = TextEditingController(text: existing?.name ?? '');
     int selectedColor = existing?.colorValue ?? _colorChoices.first;
+    String? nameError;
+    final canRename = existing == null || !existing.isDefault;
 
-    final saved = await showDialog<bool>(
-      context: context,
+    final action = await showDialog<String>(
+      context: screenContext,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(existing == null ? 'New category' : 'Rename category'),
+          title: Text(
+            existing == null
+                ? 'New category'
+                : canRename
+                ? 'Edit category'
+                : existing.name,
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                key: const Key('category_name_field'),
-                controller: nameController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(),
+              if (canRename) ...[
+                Text(
+                  'Name',
+                  style: tokens.body(12, color: tokens.muted(0.7), height: 1.3),
                 ),
+                const SizedBox(height: 6),
+                TextField(
+                  key: const Key('category_name_field'),
+                  controller: nameController,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  style: tokens.body(14),
+                  decoration: InputDecoration(errorText: nameError),
+                  onChanged: (_) {
+                    if (nameError != null) setState(() => nameError = null);
+                  },
+                ),
+                const SizedBox(height: 18),
+              ],
+              Text(
+                'Colour',
+                style: tokens.body(12, color: tokens.muted(0.7), height: 1.3),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
                   for (final color in _colorChoices)
-                    GestureDetector(
+                    InkResponse(
                       onTap: () => setState(() => selectedColor = color),
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Color(color),
-                        child: selectedColor == color
-                            ? const Icon(Icons.check,
-                                size: 16, color: Colors.white)
-                            : null,
+                      radius: 24,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Center(
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Color(color),
+                              border: Border.all(
+                                color: selectedColor == color
+                                    ? tokens.ink
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: selectedColor == color
+                                ? const Icon(
+                                    Icons.check,
+                                    size: 15,
+                                    color: Colors.white,
+                                  )
+                                : null,
+                          ),
+                        ),
                       ),
                     ),
                 ],
               ),
+              if (existing != null && !existing.isDefault) ...[
+                const SizedBox(height: 20),
+                ClassicalButton(
+                  label: 'Delete this category',
+                  variant: ClassicalButtonVariant.secondary,
+                  foreground: tokens.danger,
+                  expand: true,
+                  onPressed: () => Navigator.of(context).pop('delete'),
+                ),
+              ],
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+            ClassicalButton(
+              label: 'Cancel',
+              variant: ClassicalButtonVariant.secondary,
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            FilledButton(
+            ClassicalButton(
               key: const Key('save_category_button'),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Save'),
+              label: 'Save',
+              onPressed: () {
+                if (canRename && nameController.text.trim().isEmpty) {
+                  setState(() => nameError = 'Enter a category name');
+                  return;
+                }
+                Navigator.of(context).pop('save');
+              },
             ),
           ],
         ),
       ),
     );
 
-    if (saved != true) return;
-
     final name = nameController.text.trim();
-    if (name.isEmpty) return;
+
+    if (action == 'delete' && existing != null) {
+      if (!screenContext.mounted) return;
+      await _confirmDelete(screenContext, ref, existing);
+      return;
+    }
+    if (action != 'save') return;
 
     final repo = ref.read(categoryRepositoryProvider);
+
     if (existing == null) {
       await repo.put(
         Category()
           ..name = name
           ..colorValue = selectedColor,
       );
-    } else {
-      if (name != existing.name) {
-        await repo.rename(existing.id, name);
-        existing.name = name; // keep local copy in sync for the put below
-      }
-      if (selectedColor != existing.colorValue) {
-        existing.colorValue = selectedColor;
-        await repo.put(existing);
-      }
+      return;
+    }
+
+    if (canRename && name.isNotEmpty && name != existing.name) {
+      await repo.rename(existing.id, name);
+      existing.name = name; // keep local copy in sync for the put below
+    }
+    if (selectedColor != existing.colorValue) {
+      existing.colorValue = selectedColor;
+      await repo.put(existing);
     }
   }
 }

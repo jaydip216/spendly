@@ -9,7 +9,9 @@ class ExpenseRepository {
   final Isar _isar;
 
   Stream<List<Expense>> watchAllExpenses() {
-    return _isar.expenses.where().sortByTimestampDesc().watch(fireImmediately: true);
+    return _isar.expenses.where().sortByTimestampDesc().watch(
+      fireImmediately: true,
+    );
   }
 
   Future<List<Expense>> getAllExpenses() {
@@ -41,13 +43,35 @@ class ExpenseRepository {
   }
 
   Future<bool> existsByDedupeKey(String key) async {
-    final expense = await _isar.expenses.filter().dedupeKeyEqualTo(key).findFirst();
+    final expense = await _isar.expenses
+        .filter()
+        .dedupeKeyEqualTo(key)
+        .findFirst();
     return expense != null;
   }
 
   Future<void> saveExpense(Expense expense) async {
     await _isar.writeTxn(() async {
       await _isar.expenses.put(expense);
+    });
+  }
+
+  /// Delete only the reviewed SMS snapshots. Never delete a manual entry or
+  /// a row whose underlying message changed after the review was displayed.
+  Future<int> removeReviewedSms(List<Expense> reviewed) async {
+    return _isar.writeTxn(() async {
+      var removed = 0;
+      for (final snapshot in reviewed) {
+        final current = await _isar.expenses.get(snapshot.id);
+        if (current != null &&
+            current.source == ExpenseSource.sms &&
+            snapshot.source == ExpenseSource.sms &&
+            current.rawSms == snapshot.rawSms &&
+            current.rawSms.trim().isNotEmpty) {
+          if (await _isar.expenses.delete(current.id)) removed++;
+        }
+      }
+      return removed;
     });
   }
 
@@ -103,7 +127,8 @@ class ExpenseRepository {
         }
       }
 
-      if (transactionType != null && expense.transactionType != transactionType) {
+      if (transactionType != null &&
+          expense.transactionType != transactionType) {
         return false;
       }
 

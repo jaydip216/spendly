@@ -107,19 +107,18 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: AnalyticsScreen(),
-          ),
+          child: const MaterialApp(home: AnalyticsScreen()),
         ),
       );
 
       await tester.pumpAndSettle();
 
-      expect(find.text('No spending recorded this month.'), findsOneWidget);
+      expect(find.text('Nothing to break down'), findsOneWidget);
     });
 
-    testWidgets('shows category breakdown for month expenses',
-        (WidgetTester tester) async {
+    testWidgets('shows category breakdown for month expenses', (
+      WidgetTester tester,
+    ) async {
       final now = DateTime.now();
       final expenses = [
         _debit(
@@ -132,9 +131,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           allExpensesProvider.overrideWith((ref) => Stream.value(expenses)),
-          monthlyExpensesProvider.overrideWith(
-            (ref) => Stream.value(expenses),
-          ),
+          monthlyExpensesProvider.overrideWith((ref) => Stream.value(expenses)),
           categoriesProvider.overrideWith((ref) => Stream.value([])),
         ],
       );
@@ -143,24 +140,22 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
-            home: AnalyticsScreen(),
-          ),
+          child: const MaterialApp(home: AnalyticsScreen()),
         ),
       );
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Spend by category'), findsOneWidget);
+      expect(find.text('BY CATEGORY'), findsOneWidget);
       expect(find.text('Food'), findsOneWidget);
 
       // Sections further down are lazily built; scroll them into view.
       await tester.scrollUntilVisible(
-        find.text('Top merchants'),
+        find.text('TOP MERCHANTS'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('Top merchants'), findsOneWidget);
+      expect(find.text('TOP MERCHANTS'), findsOneWidget);
       expect(find.text('Swiggy'), findsOneWidget);
     });
   });

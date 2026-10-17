@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_print
 
 import 'package:spendly/services/parser/transaction_parser.dart';
+import '../test/services/parser/misclassification_cases.dart';
 
 class SmsCase {
   const SmsCase({
@@ -28,6 +29,21 @@ void main() {
   final parser = TransactionParser();
 
   final cases = <SmsCase>[
+    for (final body in rejectedMessages)
+      SmsCase(
+        name: 'Reject regression: $body',
+        sender: 'HDFCBK',
+        body: body,
+        shouldParse: false,
+      ),
+    for (final body in acceptedMessages)
+      SmsCase(
+        name: 'Debit regression: $body',
+        sender: 'HDFCBK',
+        body: body,
+        shouldParse: true,
+        amount: 500,
+      ),
     const SmsCase(
       name: 'SBI card spent UPI merchant',
       sender: 'SBICRD',
@@ -265,6 +281,9 @@ void main() {
 
   print('----');
   print('Summary: $passed/${cases.length} passed');
+  if (passed != cases.length) {
+    throw StateError('${cases.length - passed} SMS cases failed');
+  }
 }
 
 bool _validate(SmsCase c, dynamic parsed) {

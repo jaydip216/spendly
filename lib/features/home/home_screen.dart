@@ -1,331 +1,79 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/format.dart';
+import '../../app/theme/spendly_theme.dart';
+import '../../app/widgets/classical.dart';
 import '../../core/models/expense.dart';
 import '../../core/providers/providers.dart';
-import '../../services/sms/sms_ingestion_service.dart';
-import '../expenses/widgets/expense_card.dart';
-import '../onboarding/transparency_screen.dart';
-import 'monthly_view_screen.dart';
-import 'widgets/spend_summary_card.dart';
+import '../analytics/analytics_screen.dart' show groupByCategory;
+import '../expenses/widgets/spend_row.dart';
+import 'widgets/month_picker.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+/// The month, stated once and plainly: what went out, at what daily rate,
+/// where it went, and the last few entries.
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final month = ref.watch(selectedMonthProvider);
+    final monthlyAsync = ref.watch(monthlyExpensesProvider);
+    final summaries = ref.watch(monthSummariesProvider).valueOrNull ?? const [];
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _bootstrap();
-  }
-
-  Future<void> _bootstrap() async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final seenOnboarding = prefs.getBool(onboardingSeenKey) ?? false;
-
-    if (seenOnboarding) {
-      final SmsIngestionService ingestion = ref.read(
-        smsIngestionServiceProvider,
-      );
-      await ingestion.start();
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _ready = true;
-    });
-  }
-
-  Future<void> _syncInbox() async {
-    await ref.read(smsIngestionServiceProvider).ingestHistoricalInbox();
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('SMS sync completed.')));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_ready) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final prefs = ref.watch(sharedPreferencesProvider);
-    final seenOnboarding = prefs.getBool(onboardingSeenKey) ?? false;
-
-    if (!seenOnboarding) {
-      return TransparencyScreen(
-        onCompleted: () async {
-          if (mounted) {
-            setState(() {});
-          }
-        },
-      );
-    }
-
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Spendly',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const _BackupHealthIndicator(),
-            ],
-          ),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(58),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const TabBar(
-                  tabs: [
-                    Tab(text: 'This Month'),
-                    Tab(text: 'All Expenses'),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'Analytics',
-              onPressed: () => context.go('/analytics'),
-              icon: const Icon(Icons.bar_chart),
-            ),
-            const _ThemeModeButton(),
-            IconButton(
-              tooltip: 'Sync existing SMS',
-              onPressed: _syncInbox,
-              icon: const Icon(Icons.sync),
-            ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'backup') {
-                  context.go('/backup');
-                } else if (value == 'categories') {
-                  context.go('/categories');
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'categories',
-                  child: Text('Categories'),
-                ),
-                const PopupMenuItem(
-                  value: 'backup',
-                  child: Text('Backup & Restore'),
-                ),
-              ],
-            ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          tooltip: 'Add expense',
-          onPressed: () => context.go('/manual-entry'),
-          child: const Icon(Icons.add),
-        ),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Theme.of(context).colorScheme.primaryContainer.withAlpha(90),
-                Theme.of(context).scaffoldBackgroundColor,
-                Theme.of(context).scaffoldBackgroundColor,
-              ],
-            ),
-          ),
-          child: const TabBarView(
-            children: [
-              MonthlyViewScreen(),
-              _AllExpensesTab(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AllExpensesTab extends ConsumerStatefulWidget {
-  const _AllExpensesTab();
-
-  @override
-  ConsumerState<_AllExpensesTab> createState() => _AllExpensesTabState();
-}
-
-class _AllExpensesTabState extends ConsumerState<_AllExpensesTab> {
-  final TextEditingController _searchController = TextEditingController();
-  Timer? _debounce;
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      ref.read(searchQueryProvider.notifier).state = value;
-    });
-  }
-
-  void _clearAllFilters() {
-    _searchController.clear();
-    ref.read(searchQueryProvider.notifier).state = '';
-    ref.read(filterTransactionTypeProvider.notifier).state = null;
-    ref.read(filterSourceProvider.notifier).state = null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final query = ref.watch(searchQueryProvider);
-    final typeFilter = ref.watch(filterTransactionTypeProvider);
-    final sourceFilter = ref.watch(filterSourceProvider);
-
-    final isFiltering = query.isNotEmpty || typeFilter != null || sourceFilter != null;
-
-    final expensesAsync = isFiltering
-        ? ref.watch(filteredExpensesProvider)
-        : ref.watch(allExpensesProvider);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+    return TabPage(
       child: Column(
         children: [
-          const _BackupNudgeBanner(),
-          const SpendSummaryCard(),
-          const SizedBox(height: 10),
-          // Search bar
-          TextField(
-            key: const Key('search_bar'),
-            controller: _searchController,
-            onChanged: _onSearchChanged,
-            decoration: InputDecoration(
-              hintText: 'Search by merchant…',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: query.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        ref.read(searchQueryProvider.notifier).state = '';
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Filter chips row
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _FilterChip(
-                  label: 'Debit',
-                  selected: typeFilter == TransactionType.debit,
-                  onSelected: (selected) {
-                    ref.read(filterTransactionTypeProvider.notifier).state =
-                        selected ? TransactionType.debit : null;
-                  },
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Credit',
-                  selected: typeFilter == TransactionType.credit,
-                  onSelected: (selected) {
-                    ref.read(filterTransactionTypeProvider.notifier).state =
-                        selected ? TransactionType.credit : null;
-                  },
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'SMS',
-                  selected: sourceFilter == ExpenseSource.sms,
-                  onSelected: (selected) {
-                    ref.read(filterSourceProvider.notifier).state =
-                        selected ? ExpenseSource.sms : null;
-                  },
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Manual',
-                  selected: sourceFilter == ExpenseSource.manual,
-                  onSelected: (selected) {
-                    ref.read(filterSourceProvider.notifier).state =
-                        selected ? ExpenseSource.manual : null;
-                  },
-                ),
-                if (isFiltering) ...[
-                  const SizedBox(width: 8),
-                  ActionChip(
-                    label: const Text('Clear'),
-                    avatar: const Icon(Icons.close, size: 16),
-                    onPressed: _clearAllFilters,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Expenses list
+          const _HomeHeader(),
           Expanded(
-            child: expensesAsync.when(
+            child: monthlyAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => EmptyState(
+                title: 'Could not read this month',
+                message: '$error',
+              ),
               data: (expenses) {
-                if (expenses.isEmpty) {
-                  return isFiltering
-                      ? const _NoResultsState()
-                      : const _EmptyExpensesState();
-                }
+                final debits = expenses
+                    .where((e) => e.transactionType == TransactionType.debit)
+                    .toList();
 
-                return ListView.separated(
-                  itemCount: expenses.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    return ExpenseCard(expense: expenses[index]);
-                  },
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+                  children: [
+                    const MonthSwitcher(),
+                    const Rule(),
+                    if (debits.isEmpty)
+                      _EmptyMonth(month: month, summaries: summaries)
+                    else ...[
+                      _MonthTotal(
+                        debits: debits,
+                        month: month,
+                        summaries: summaries,
+                      ),
+                      const SizedBox(height: 24),
+                      _MonthMetrics(debits: debits, month: month),
+                      const SizedBox(height: 26),
+                      SectionHeading(
+                        'Where it went',
+                        actionLabel: 'All insights',
+                        onAction: () => context.go('/insights'),
+                      ),
+                      const SizedBox(height: 12),
+                      _CategoryMeters(debits: debits),
+                      const SizedBox(height: 28),
+                      SectionHeading(
+                        'Recent',
+                        actionLabel: 'See all',
+                        onAction: () => context.go('/spends'),
+                      ),
+                      const SizedBox(height: 4),
+                      for (final expense in expenses.take(6))
+                        SpendRow(expense: expense, showMethod: false),
+                    ],
+                  ],
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) =>
-                  Center(child: Text('Failed to load expenses: $error')),
             ),
           ),
         ],
@@ -334,177 +82,42 @@ class _AllExpensesTabState extends ConsumerState<_AllExpensesTab> {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final String label;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilterChip(
-      key: Key('filter_chip_$label'),
-      label: Text(label),
-      selected: selected,
-      onSelected: onSelected,
-    );
-  }
-}
-
-class _NoResultsState extends StatelessWidget {
-  const _NoResultsState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      key: const Key('no_results'),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 48,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'No results found',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Try adjusting your search or filters.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyExpensesState extends StatelessWidget {
-  const _EmptyExpensesState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Card(
-        margin: const EdgeInsets.all(24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                ),
-                child: Icon(
-                  Icons.sms_rounded,
-                  size: 34,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'No expenses yet',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Spendly auto-detects debit transactions from your SMS inbox and keeps everything on device.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BackupNudgeBanner extends ConsumerWidget {
-  const _BackupNudgeBanner();
+class _HomeHeader extends ConsumerWidget {
+  const _HomeHeader();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dismissed = ref.watch(backupNudgeDismissedProvider);
-    if (dismissed) return const SizedBox.shrink();
-
+    final tokens = SpendlyTokens.of(context);
     final lastBackup = ref.watch(lastBackupProvider);
-    final now = DateTime.now();
-    final needsNudge = lastBackup == null ||
-        now.difference(lastBackup).inDays > 7;
+    final staleBackup =
+        lastBackup == null || DateTime.now().difference(lastBackup).inDays > 7;
 
-    if (!needsNudge) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer.withAlpha(180),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return SizedBox(
+      height: 64,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.only(left: 22, right: 20),
         child: Row(
           children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              size: 20,
-              color: Theme.of(context).colorScheme.onErrorContainer,
-            ),
-            const SizedBox(width: 10),
             Expanded(
               child: Text(
-                "You haven't backed up in a while. Tap to secure your data.",
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onErrorContainer,
-                    ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            TextButton(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () => GoRouter.of(context).go('/backup'),
-              child: Text(
-                'Backup Now',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onErrorContainer,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+                'Spendly',
+                style: tokens.heading(
+                  21,
+                  weight: FontWeight.w600,
+                  letterSpacingEm: 0.01,
                 ),
               ),
             ),
-            TextButton(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () =>
-                  ref.read(backupNudgeDismissedProvider.notifier).state = true,
-              child: Text(
-                'Later',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onErrorContainer.withAlpha(180),
-                  fontSize: 12,
-                ),
-              ),
+            IconAction(
+              icon: Icons.add,
+              tooltip: 'Add a spend by hand',
+              onPressed: () => context.push('/manual-entry'),
+            ),
+            IconAction(
+              icon: Icons.cloud_outlined,
+              tooltip: staleBackup ? 'Backup is out of date' : 'Backup',
+              showDot: staleBackup,
+              onPressed: () => context.push('/backup'),
             ),
           ],
         ),
@@ -513,81 +126,223 @@ class _BackupNudgeBanner extends ConsumerWidget {
   }
 }
 
-class _BackupHealthIndicator extends ConsumerWidget {
-  const _BackupHealthIndicator();
+/// ₹ set small and light, the figure set large — the one number the screen
+/// exists for, with the month-on-month change stated in words underneath.
+class _MonthTotal extends StatelessWidget {
+  const _MonthTotal({
+    required this.debits,
+    required this.month,
+    required this.summaries,
+  });
+
+  final List<Expense> debits;
+  final DateTime month;
+  final List<({DateTime month, double total, int count})> summaries;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final lastBackup = ref.watch(lastBackupProvider);
-    final now = DateTime.now();
+  Widget build(BuildContext context) {
+    final tokens = SpendlyTokens.of(context);
+    final total = debits.fold<double>(0, (sum, e) => sum + e.amount);
 
-    Color dotColor;
-    String label;
-
-    if (lastBackup == null) {
-      dotColor = Colors.red;
-      label = 'Never backed up';
-    } else {
-      final days = now.difference(lastBackup).inDays;
-      if (days < 7) {
-        dotColor = Colors.green;
-        label = days == 0 ? 'Backed up today' : 'Backed up $days day${days == 1 ? '' : 's'} ago';
-      } else if (days <= 30) {
-        dotColor = Colors.orange;
-        label = 'Last backup: $days days ago';
-      } else {
-        dotColor = Colors.red;
-        label = 'Last backup: $days days ago';
-      }
-    }
-
-    return GestureDetector(
-      onTap: () => GoRouter.of(context).go('/backup'),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.only(top: 26),
+      child: Column(
         children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          Text('TOTAL SPENT', style: tokens.metricLabel(size: 11)),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '₹',
+                style: tokens.figure(
+                  30,
+                  color: tokens.muted(0.5),
+                  letterSpacingEm: -0.03,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    rupees(total),
+                    key: const Key('home_month_total'),
+                    style: tokens.figure(60, height: 1, letterSpacingEm: -0.03),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 5),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 10),
+          Text(
+            _deltaSentence(total),
+            textAlign: TextAlign.center,
+            style: tokens.body(12.5, color: tokens.muted(0.6)),
+          ),
         ],
       ),
     );
   }
+
+  String _deltaSentence(double total) {
+    final previousMonth = DateTime(month.year, month.month - 1);
+    final previous = summaries
+        .where(
+          (s) =>
+              s.month.year == previousMonth.year &&
+              s.month.month == previousMonth.month,
+        )
+        .firstOrNull;
+
+    final now = DateTime.now();
+    final isCurrentMonth = month.year == now.year && month.month == now.month;
+    final tail = isCurrentMonth ? ' — only ${now.day} days in' : '';
+
+    if (previous == null || previous.total == 0) {
+      return isCurrentMonth
+          ? '${now.day} days into the month'
+          : 'Nothing recorded in ${monthShort.format(previousMonth)}';
+    }
+
+    final change = (total - previous.total) / previous.total * 100;
+    final sign = change < 0 ? '−' : '+';
+    return '$sign${change.abs().round()}% vs '
+        '${monthShort.format(previousMonth)}$tail';
+  }
 }
 
-class _ThemeModeButton extends ConsumerWidget {
-  const _ThemeModeButton();
+class _MonthMetrics extends StatelessWidget {
+  const _MonthMetrics({required this.debits, required this.month});
+
+  final List<Expense> debits;
+  final DateTime month;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider);
+  Widget build(BuildContext context) {
+    final total = debits.fold<double>(0, (sum, e) => sum + e.amount);
+    final now = DateTime.now();
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+    final isCurrentMonth = month.year == now.year && month.month == now.month;
 
-    return PopupMenuButton<ThemeMode>(
-      tooltip: 'Theme mode',
-      icon: Icon(_modeIcon(mode)),
-      onSelected: (mode) {
-        ref.read(themeModeProvider.notifier).setThemeMode(mode);
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(value: ThemeMode.system, child: Text('System')),
-        const PopupMenuItem(value: ThemeMode.light, child: Text('Light')),
-        const PopupMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+    final elapsed = isCurrentMonth ? now.day : daysInMonth;
+    final perDay = elapsed == 0 ? 0.0 : total / elapsed;
+
+    return MetricStrip(
+      metrics: [
+        (value: rupeesWithSymbol(perDay), label: 'Per day'),
+        (
+          value: isCurrentMonth ? '${daysInMonth - now.day}' : '$daysInMonth',
+          label: isCurrentMonth ? 'Days left' : 'Days',
+        ),
+        (value: '${debits.length}', label: 'Spends'),
       ],
     );
   }
+}
 
-  IconData _modeIcon(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return Icons.light_mode_rounded;
-      case ThemeMode.dark:
-        return Icons.dark_mode_rounded;
-      case ThemeMode.system:
-        return Icons.brightness_6_rounded;
+class _CategoryMeters extends StatelessWidget {
+  const _CategoryMeters({required this.debits});
+
+  final List<Expense> debits;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = SpendlyTokens.of(context);
+    final totals = groupByCategory(debits);
+    final grandTotal = totals.values.fold<double>(0, (sum, v) => sum + v);
+    final top = totals.entries.take(5).toList();
+
+    return Column(
+      children: [
+        for (var i = 0; i < top.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: i == top.length - 1 ? 0 : 13),
+            child: MeterRow(
+              label: top[i].key,
+              value: rupeesWithSymbol(top[i].value),
+              trailingNote: grandTotal == 0
+                  ? null
+                  : '${(top[i].value / grandTotal * 100).round()}%',
+              fraction: grandTotal == 0 ? 0 : top[i].value / grandTotal,
+              color: tokens.seriesAt(i),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Two flavours of nothing: a month with no entries, and an app with none at
+/// all. They read very differently to someone who has just installed Spendly.
+class _EmptyMonth extends ConsumerWidget {
+  const _EmptyMonth({required this.month, required this.summaries});
+
+  final DateTime month;
+  final List<({DateTime month, double total, int count})> summaries;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = SpendlyTokens.of(context);
+    final nearest = summaries.firstOrNull;
+
+    if (summaries.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: EmptyState(
+          title: 'No spends yet',
+          titleSize: 30,
+          message:
+              'Spendly builds your log from the texts your bank sends after '
+              'each payment. Nothing here yet — add one by hand, or check that '
+              'SMS access is on in Settings.',
+          action: ClassicalButton(
+            label: 'Add a spend manually',
+            height: 44,
+            onPressed: () => context.push('/manual-entry'),
+          ),
+        ),
+      );
     }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 60),
+      child: Column(
+        children: [
+          Text(
+            '₹0',
+            style: tokens.figure(
+              64,
+              color: tokens.ink.withValues(alpha: 0.18),
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Nothing recorded in ${monthShort.format(month)}',
+            textAlign: TextAlign.center,
+            style: tokens.heading(22),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'No bank texts from this month reached Spendly. Months your phone '
+            'still had messages for are listed in the month picker.',
+            textAlign: TextAlign.center,
+            style: tokens.body(13.5, color: tokens.muted(0.58)),
+          ),
+          if (nearest != null) ...[
+            const SizedBox(height: 18),
+            ClassicalButton(
+              label: 'Go to ${monthShortYear.format(nearest.month)}',
+              variant: ClassicalButtonVariant.ghost,
+              onPressed: () => ref.read(selectedMonthProvider.notifier).state =
+                  nearest.month,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }

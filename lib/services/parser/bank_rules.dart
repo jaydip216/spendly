@@ -17,10 +17,7 @@ class BankRules {
     'debited',
     'spent',
     'paid',
-    'purchase',
     'withdrawn',
-    'sent',
-    'transaction of',
     'dr',
   ];
 
@@ -36,7 +33,20 @@ class BankRules {
       r'\bestatement\b|\be-statement\b|\bstatement\b',
       caseSensitive: false,
     ),
-    RegExp(r'\botp\b|\bone[ -]?time\s+password\b', caseSensitive: false),
+    RegExp(
+      r'\bo[\s.-]*t[\s.-]*p\b|\botp(?=\d)|'
+      r'\bone[\s-]*time[\s-]*(?:password|passcode|code|pin)\b|'
+      r'\b(?:verification|authentication|authorization|authorisation|security)\s+(?:code|password|pin)\b',
+      caseSensitive: false,
+    ),
+    // Requests, failed attempts and reversals do not confirm a new spend.
+    RegExp(
+      r'\b(?:failed|declined|unsuccessful|reversed|refunded|refund|reversal)\b|'
+      r'\b(?:will|would|shall)\s+be\s+debited\b|'
+      r'\b(?:not|never)\s+(?:been\s+)?debited\b|'
+      r'\b(?:to\s+authorize|to\s+authorise|pending\s+approval)\b',
+      caseSensitive: false,
+    ),
     RegExp(
       r'\bupi\b.*\bcollect\s+request\b|\bcollect\s+request\b',
       caseSensitive: false,

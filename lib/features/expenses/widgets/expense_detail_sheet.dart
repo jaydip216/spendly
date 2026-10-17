@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../../app/expense_presentation.dart';
+import '../../../app/format.dart';
+import '../../../app/theme/spendly_theme.dart';
+import '../../../app/widgets/classical.dart';
 import '../../../core/models/expense.dart';
 import '../../../core/providers/providers.dart';
 
-/// Bottom sheet with full transaction details and a category picker.
+/// Full detail for one entry, with the text it was parsed from and a category
+/// picker. Everything else the parser extracted is listed underneath, so it is
+/// always possible to see why Spendly recorded what it did.
 Future<void> showExpenseDetailSheet(BuildContext context, Expense expense) {
-  return showModalBottomSheet<void>(
+  return showClassicalSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
+    expand: true,
     builder: (context) => ExpenseDetailSheet(expense: expense),
   );
 }
@@ -22,142 +26,155 @@ class ExpenseDetailSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final amountFormat = NumberFormat.currency(
-      symbol: '₹',
-      decimalDigits: 2,
-      locale: 'en_IN',
-    );
-    final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
-    final scheme = Theme.of(context).colorScheme;
-    final isDebit = expense.transactionType == TransactionType.debit;
+    final tokens = SpendlyTokens.of(context);
+    final media = MediaQuery.of(context);
     final categoriesAsync = ref.watch(categoriesProvider);
-    final currentCategory =
-        expense.category.isEmpty ? 'Other' : expense.category;
+    final currentCategory = expense.displayCategory;
+    final isDebit = expense.transactionType == TransactionType.debit;
 
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.65,
-      maxChildSize: 0.92,
-      builder: (context, scrollController) {
-        return ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: media.size.height * 0.82,
+      child: Column(
+        children: [
+          const Center(child: SheetHandle()),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
               children: [
-                Expanded(
-                  child: Text(
-                    expense.merchant.isEmpty
-                        ? 'Unknown merchant'
-                        : expense.merchant,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        expense.displayMerchant,
+                        style: tokens.heading(
+                          30,
+                          height: 1.08,
+                          letterSpacingEm: -0.02,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      rupeesWithSymbol(expense.amount, decimals: true),
+                      style: tokens.figure(
+                        26,
+                        color: isDebit ? tokens.ink : tokens.accentDeep,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${fullTimestamp.format(expense.timestamp)} · '
+                  '${expense.paymentMethod}'
+                  '${expense.accountLabel == null ? '' : ' · ${expense.accountLabel}'}',
+                  style: tokens.body(12.5, color: tokens.muted(0.55)),
+                ),
+                const SizedBox(height: 22),
+
+                if (expense.rawSms.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      color: tokens.ink.withValues(alpha: 0.03),
+                      border: Border.all(color: tokens.divider),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SectionLabel(
+                          expense.sender.isEmpty
+                              ? 'Original message'
+                              : 'Original message · ${expense.sender}',
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          expense.rawSms,
+                          style: tokens.body(
+                            12.5,
+                            color: tokens.muted(0.72),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                ],
+
+                const SectionLabel('Category'),
+                const SizedBox(height: 10),
+                categoriesAsync.when(
+                  loading: () => const SizedBox(
+                    height: 34,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (error, _) => Text(
+                    'Failed to load categories: $error',
+                    style: tokens.body(12.5, color: tokens.danger),
+                  ),
+                  data: (categories) => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final category in categories)
+                        PillChip(
+                          key: Key('category_chip_${category.name}'),
+                          label: category.name,
+                          swatch: Color(category.colorValue),
+                          selected: category.name == currentCategory,
+                          onTap: () async {
+                            if (category.name == currentCategory) return;
+                            expense.category = category.name;
+                            await ref
+                                .read(expenseRepositoryProvider)
+                                .saveExpense(expense);
+                            if (context.mounted) Navigator.of(context).pop();
+                          },
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(height: 24),
+
+                const SectionLabel('What Spendly read'),
+                const SizedBox(height: 4),
+                _DetailRow(
+                  label: 'Direction',
+                  value: isDebit ? 'Debit' : 'Credit',
+                ),
+                _DetailRow(
+                  label: 'Source',
+                  value: expense.source == ExpenseSource.sms
+                      ? 'Read from SMS'
+                      : 'Added by hand',
+                ),
+                if (expense.sender.isNotEmpty)
+                  _DetailRow(label: 'Sender', value: expense.sender),
+                if (expense.bankName != null)
+                  _DetailRow(label: 'Bank', value: expense.bankName!),
+                if (expense.upiId != null)
+                  _DetailRow(label: 'UPI id', value: expense.upiId!),
+                if (expense.cardLastFour != null)
+                  _DetailRow(
+                    label: 'Card',
+                    value: '••••${expense.cardLastFour}',
+                  ),
+                if (expense.notes != null && expense.notes!.isNotEmpty)
+                  _DetailRow(label: 'Note', value: expense.notes!),
+                const SizedBox(height: 16),
                 Text(
-                  amountFormat.format(expense.amount),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: isDebit ? scheme.error : scheme.primary,
-                      ),
+                  'Category changes stick — a re-scan never overwrites a field '
+                  'you have set yourself.',
+                  style: tokens.body(11.5, color: tokens.muted(0.48)),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              dateFormat.format(expense.timestamp),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Category',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            categoriesAsync.when(
-              data: (categories) => Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final category in categories)
-                    ChoiceChip(
-                      key: Key('category_chip_${category.name}'),
-                      label: Text(category.name),
-                      selected: category.name == currentCategory,
-                      avatar: CircleAvatar(
-                        radius: 6,
-                        backgroundColor: Color(category.colorValue),
-                      ),
-                      onSelected: (selected) async {
-                        if (!selected) return;
-                        expense.category = category.name;
-                        await ref
-                            .read(expenseRepositoryProvider)
-                            .saveExpense(expense);
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                    ),
-                ],
-              ),
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Text('Failed to load categories: $error'),
-            ),
-            const SizedBox(height: 20),
-            _DetailRow(label: 'Type', value: isDebit ? 'Debit' : 'Credit'),
-            _DetailRow(
-              label: 'Source',
-              value: expense.source == ExpenseSource.sms ? 'SMS' : 'Manual',
-            ),
-            if (expense.sender.isNotEmpty)
-              _DetailRow(label: 'Sender', value: expense.sender),
-            if (expense.bankName != null)
-              _DetailRow(label: 'Bank', value: expense.bankName!),
-            if (expense.upiId != null)
-              _DetailRow(label: 'UPI', value: expense.upiId!),
-            if (expense.cardLastFour != null)
-              _DetailRow(label: 'Card', value: '••••${expense.cardLastFour}'),
-            if (expense.notes != null && expense.notes!.isNotEmpty)
-              _DetailRow(label: 'Notes', value: expense.notes!),
-            if (expense.rawSms.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: Text(
-                  'Original SMS',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: scheme.surfaceContainerHighest,
-                    ),
-                    child: Text(
-                      expense.rawSms,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -170,24 +187,23 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    final tokens = SpendlyTokens.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: tokens.divider)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 80,
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ),
-          Expanded(
+            width: 92,
             child: Text(
-              value,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              label,
+              style: tokens.body(12.5, color: tokens.muted(0.52), height: 1.35),
             ),
           ),
+          Expanded(child: Text(value, style: tokens.body(13.5, height: 1.35))),
         ],
       ),
     );

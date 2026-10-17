@@ -13,12 +13,30 @@ I know there are apps available which can do this task for me but I am too cauti
 ## Features
 
 - 📱 **Auto-parses bank SMS** — UPI, card transactions, net banking
-- 📊 **Spending analytics** — Pie chart (top merchants) + bar chart (monthly trend)
+- 📊 **Spending analytics** — Monthly trends, category breakdowns and merchant details
 - ✍️ **Manual expense entry** — For cash or non-SMS transactions
 - 🔍 **Search & filter** — Find expenses by merchant, type, or source
 - 💾 **Backup & restore** — Local JSON export + Google Drive
 - 🛡️ **Data safety nudges** — Colored indicator + reminder if you haven't backed up
-- 🎨 **Material 3** — Dark/light theme, clean UI
+- 🎨 **Classical design** — Paper-and-gold styling with light/dark themes
+
+## Reviewing incorrect SMS entries
+
+The parser accepts completed outgoing transactions and rejects OTPs, incoming
+credits, refunds, failed attempts and payment requests. Credit-card purchases
+remain expenses. Bank wording varies; keep a redacted sample when reporting a
+misclassification.
+
+After updating, open **Settings → Review SMS entries**. Expand a message, select
+only entries that are not expenses, then confirm removal. This does not clear
+your inbox or automatically remove anything from your history. Manual entries
+are excluded. Export a backup before cleanup if you need a copy.
+
+Run the curated parsing cases, including extracted amounts and account details:
+
+```bash
+flutter test test/services/parser/real_world_sms_suite_test.dart
+```
 
 ## Tech Stack
 
@@ -28,7 +46,7 @@ I know there are apps available which can do this task for me but I am too cauti
 | Database | Isar (local NoSQL) |
 | State | Riverpod |
 | Navigation | go_router |
-| Charts | fl_chart |
+| Charts | Flutter widgets + CustomPainter |
 | SMS | another_telephony |
 | Backup | google_sign_in + googleapis |
 
@@ -75,10 +93,10 @@ lib/
 │   ├── providers/        # All Riverpod providers (single file)
 │   └── repositories/     # ExpenseRepository (CRUD + search)
 ├── features/
-│   ├── analytics/        # Pie + bar chart screens
+│   ├── analytics/        # Insights and spending breakdowns
 │   ├── backup/           # Backup/restore UI
-│   ├── expenses/         # ExpenseCard widget
-│   ├── home/             # Home screen + monthly view
+│   ├── expenses/         # Spend rows and transaction detail sheet
+│   ├── home/             # Month-scoped summary and month picker
 │   ├── manual_entry/     # Manual expense form
 │   └── onboarding/       # SMS permission + data safety info
 ├── services/
@@ -92,7 +110,7 @@ lib/
 
 ```bash
 flutter run                                          # Dev
-flutter test                                         # Run tests (53 pass)
+flutter test                                         # Run automated tests
 flutter analyze                                      # Lint (0 issues)
 dart run build_runner build --delete-conflicting-outputs  # Regen schemas
 flutter build apk --release                          # Release build
@@ -107,3 +125,9 @@ flutter build apk --release                          # Release build
 > No Stack Overflow tabs were opened. No documentation was read by human eyes. The commit messages are better than anything I'd write myself.
 >
 > If something breaks, just know that the vibes were absolutely immaculate at the time of shipping.
+
+## Current verification and release status
+
+See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the latest test scope and
+remaining release checks. Debug APKs are for local testing. Release signing and
+live Google Drive verification still need setup before distribution.

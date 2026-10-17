@@ -6,16 +6,17 @@ class CategoryRules {
   static const String fallbackCategory = 'Other';
 
   /// Default categories seeded on first launch. Single source of truth for
-  /// both seeding and auto-categorization targets.
+  /// both seeding and auto-categorization targets. The colours are the warm,
+  /// low-chroma swatches the Classical theme uses everywhere else.
   static const List<({String name, int colorValue})> defaultCategories = [
-    (name: 'Food', colorValue: 0xFFEF6C00), // orange
-    (name: 'Groceries', colorValue: 0xFF2E7D32), // green
-    (name: 'Transport', colorValue: 0xFF1565C0), // blue
-    (name: 'Shopping', colorValue: 0xFF6A1B9A), // purple
-    (name: 'Bills & Utilities', colorValue: 0xFF00838F), // cyan
-    (name: 'Entertainment', colorValue: 0xFFC62828), // red
-    (name: 'Health', colorValue: 0xFFAD1457), // pink
-    (name: 'Other', colorValue: 0xFF9E9E9E), // grey
+    (name: 'Food', colorValue: 0xFFB68235), // gold
+    (name: 'Groceries', colorValue: 0xFF5A6B5D), // sage
+    (name: 'Transport', colorValue: 0xFF37474F), // ink blue
+    (name: 'Shopping', colorValue: 0xFF7D5411), // bronze
+    (name: 'Bills & Utilities', colorValue: 0xFF6D675F), // slate
+    (name: 'Entertainment', colorValue: 0xFF8D2F22), // rust
+    (name: 'Health', colorValue: 0xFF4E342E), // umber
+    (name: 'Other', colorValue: 0xFF8A8177), // stone
   ];
 
   /// Merchant/UPI keyword rules, checked in order. All lowercase.

@@ -59,6 +59,9 @@ class FakeExpenseRepository implements ExpenseRepository {
   Future<void> saveExpense(Expense expense) async {}
 
   @override
+  Future<int> removeReviewedSms(List<Expense> reviewed) async => 0;
+
+  @override
   Future<void> clearAll() async {}
 
   @override
@@ -169,8 +172,9 @@ class _SearchFilterTestWidgetState
                     label: const Text('SMS'),
                     selected: sourceFilter == ExpenseSource.sms,
                     onSelected: (selected) {
-                      ref.read(filterSourceProvider.notifier).state =
-                          selected ? ExpenseSource.sms : null;
+                      ref.read(filterSourceProvider.notifier).state = selected
+                          ? ExpenseSource.sms
+                          : null;
                     },
                   ),
                   const SizedBox(width: 8),
@@ -179,8 +183,9 @@ class _SearchFilterTestWidgetState
                     label: const Text('Manual'),
                     selected: sourceFilter == ExpenseSource.manual,
                     onSelected: (selected) {
-                      ref.read(filterSourceProvider.notifier).state =
-                          selected ? ExpenseSource.manual : null;
+                      ref.read(filterSourceProvider.notifier).state = selected
+                          ? ExpenseSource.manual
+                          : null;
                     },
                   ),
                 ],
@@ -202,8 +207,7 @@ class _SearchFilterTestWidgetState
                         Text(expenses[index].merchant),
                   );
                 },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('Error: $e')),
               ),
             ),
@@ -216,12 +220,8 @@ class _SearchFilterTestWidgetState
 
 Widget _buildTestWidget(FakeExpenseRepository fakeRepo) {
   return ProviderScope(
-    overrides: [
-      expenseRepositoryProvider.overrideWithValue(fakeRepo),
-    ],
-    child: const MaterialApp(
-      home: _SearchFilterTestWidget(),
-    ),
+    overrides: [expenseRepositoryProvider.overrideWithValue(fakeRepo)],
+    child: const MaterialApp(home: _SearchFilterTestWidget()),
   );
 }
 
@@ -251,8 +251,9 @@ void main() {
       expect(find.text('Swiggy'), findsOneWidget);
     });
 
-    testWidgets('filter chips exist: Debit, Credit, SMS, Manual',
-        (tester) async {
+    testWidgets('filter chips exist: Debit, Credit, SMS, Manual', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildTestWidget(fakeRepo));
       await tester.pump();
 
@@ -262,8 +263,9 @@ void main() {
       expect(find.byKey(const Key('filter_chip_Manual')), findsOneWidget);
     });
 
-    testWidgets('no-results widget shown when search yields empty',
-        (tester) async {
+    testWidgets('no-results widget shown when search yields empty', (
+      tester,
+    ) async {
       final expense = Expense()
         ..merchant = 'Swiggy'
         ..amount = 100

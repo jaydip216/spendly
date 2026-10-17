@@ -43,8 +43,6 @@ dependencies:
   path_provider: ^2.1.5
   intl: ^0.20.2
   permission_handler: ^12.0.1
-  google_fonts: ^6.3.2
-  fl_chart: ^0.69.0
   share_plus: ^10.0.0
   file_picker: ^8.0.0
   google_sign_in: ^6.2.1
@@ -75,6 +73,23 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  fonts:
+    - family: CormorantGaramond
+      fonts:
+        - asset: assets/fonts/CormorantGaramond-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/CormorantGaramond-SemiBold.ttf
+          weight: 600
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Lora-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/Lora-SemiBold.ttf
+          weight: 600
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -110,7 +110,9 @@ final allExpensesProvider = StreamProvider<List<Expense>>((ref) {
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
-final filterTransactionTypeProvider = StateProvider<TransactionType?>((ref) => null);
+final filterTransactionTypeProvider = StateProvider<TransactionType?>(
+  (ref) => null,
+);
 
 final filterSourceProvider = StateProvider<ExpenseSource?>((ref) => null);
 
@@ -120,7 +122,29 @@ final filterMaxAmountProvider = StateProvider<double?>((ref) => null);
 
 final filterDateRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
 
-final filteredExpensesProvider = FutureProvider<List<Expense>>((ref) {
+/// Category name, or null for "any category". Applied on top of
+/// [ExpenseRepository.searchAndFilter] rather than inside it, because that
+/// method already loads everything into memory.
+final filterCategoryProvider = StateProvider<String?>((ref) => null);
+
+/// How many filters (search excluded) are narrowing the Spends list — drives
+/// the dot on the filter button and the "Reset" affordance.
+final activeFilterCountProvider = Provider<int>((ref) {
+  var count = 0;
+  if (ref.watch(filterTransactionTypeProvider) != null) count++;
+  if (ref.watch(filterSourceProvider) != null) count++;
+  if (ref.watch(filterMinAmountProvider) != null) count++;
+  if (ref.watch(filterDateRangeProvider) != null) count++;
+  if (ref.watch(filterCategoryProvider) != null) count++;
+  return count;
+});
+
+final isFilteringProvider = Provider<bool>((ref) {
+  return ref.watch(searchQueryProvider).isNotEmpty ||
+      ref.watch(activeFilterCountProvider) > 0;
+});
+
+final filteredExpensesProvider = FutureProvider<List<Expense>>((ref) async {
   final repo = ref.watch(expenseRepositoryProvider);
   final query = ref.watch(searchQueryProvider);
   final type = ref.watch(filterTransactionTypeProvider);
@@ -128,7 +152,9 @@ final filteredExpensesProvider = FutureProvider<List<Expense>>((ref) {
   final minAmount = ref.watch(filterMinAmountProvider);
   final maxAmount = ref.watch(filterMaxAmountProvider);
   final dateRange = ref.watch(filterDateRangeProvider);
-  return repo.searchAndFilter(
+  final category = ref.watch(filterCategoryProvider);
+
+  final results = await repo.searchAndFilter(
     query: query.isEmpty ? null : query,
     transactionType: type,
     source: source,
@@ -136,7 +162,41 @@ final filteredExpensesProvider = FutureProvider<List<Expense>>((ref) {
     maxAmount: maxAmount,
     dateRange: dateRange,
   );
+
+  if (category == null) return results;
+  return results
+      .where((e) => (e.category.isEmpty ? 'Other' : e.category) == category)
+      .toList();
 });
+
+/// Debit total and count per calendar month, newest month first. Feeds the
+/// month picker sheet, the home month delta and the Insights trend strip.
+final monthSummariesProvider =
+    Provider<AsyncValue<List<({DateTime month, double total, int count})>>>((
+      ref,
+    ) {
+      final expensesAsync = ref.watch(allExpensesProvider);
+
+      return expensesAsync.whenData((expenses) {
+        final totals = <DateTime, double>{};
+        final counts = <DateTime, int>{};
+        for (final expense in expenses) {
+          if (expense.transactionType != TransactionType.debit) continue;
+          final month = DateTime(
+            expense.timestamp.year,
+            expense.timestamp.month,
+          );
+          totals[month] = (totals[month] ?? 0) + expense.amount;
+          counts[month] = (counts[month] ?? 0) + 1;
+        }
+
+        final months = totals.keys.toList()..sort((a, b) => b.compareTo(a));
+        return [
+          for (final month in months)
+            (month: month, total: totals[month]!, count: counts[month]!),
+        ];
+      });
+    });
 
 /// Custom range for the spend summary card. Null means "current month".
 final spendRangeProvider = StateProvider<DateTimeRange?>((ref) => null);
@@ -158,7 +218,11 @@ final totalSpentProvider = Provider<AsyncValue<({double total, int count})>>((
       endExclusive = DateTime(now.year, now.month + 1, 1);
     } else {
       start = DateTime(range.start.year, range.start.month, range.start.day);
-      endExclusive = DateTime(range.end.year, range.end.month, range.end.day + 1);
+      endExclusive = DateTime(
+        range.end.year,
+        range.end.month,
+        range.end.day + 1,
+      );
     }
 
     double total = 0;

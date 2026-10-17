@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../app/format.dart';
+import '../../app/theme/spendly_theme.dart';
+import '../../app/widgets/classical.dart';
 import '../../core/models/expense.dart';
 import '../../core/providers/providers.dart';
 
+/// For cash, and for anything the bank did not text about.
 class ManualEntryScreen extends ConsumerStatefulWidget {
   const ManualEntryScreen({super.key});
 
@@ -58,8 +61,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       ..notes = _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim()
-      ..dedupeKey =
-          'manual_${DateTime.now().millisecondsSinceEpoch}'
+      ..dedupeKey = 'manual_${DateTime.now().millisecondsSinceEpoch}'
       ..createdAt = DateTime.now();
 
     try {
@@ -67,10 +69,19 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       await repo.saveExpense(expense);
 
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Expense saved successfully')),
       );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save this expense. Please try again.'),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -78,184 +89,201 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat('dd MMM yyyy').format(_selectedDate);
+    final tokens = SpendlyTokens.of(context);
+    final categories = ref.watch(categoriesProvider).valueOrNull ?? const [];
+    final names = categories.map((c) => c.name).toList();
+    if (names.isNotEmpty && !names.contains(_selectedCategory)) {
+      _selectedCategory = names.contains('Other') ? 'Other' : names.first;
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Expense')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Amount
-              TextFormField(
-                key: const Key('amount_field'),
-                controller: _amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: '₹ ',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Amount is required';
-                  }
-                  final parsed = double.tryParse(value.trim());
-                  if (parsed == null || parsed <= 0) {
-                    return 'Enter a valid amount greater than 0';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Merchant
-              TextFormField(
-                key: const Key('merchant_field'),
-                controller: _merchantController,
-                decoration: const InputDecoration(
-                  labelText: 'Merchant',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Merchant is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Date picker
-              InkWell(
-                key: const Key('date_picker'),
-                onTap: _pickDate,
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Date',
-                    border: OutlineInputBorder(),
-                    suffixIcon: Icon(Icons.calendar_today),
-                  ),
-                  child: Text(dateLabel),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Transaction type
-              Row(
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: const Text('Add a spend'),
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
                 children: [
-                  const Text('Type: '),
-                  const SizedBox(width: 8),
-                  ToggleButtons(
-                    key: const Key('transaction_type_toggle'),
-                    isSelected: [
-                      _transactionType == TransactionType.debit,
-                      _transactionType == TransactionType.credit,
-                    ],
-                    onPressed: (index) {
-                      setState(() {
-                        _transactionType = index == 0
-                            ? TransactionType.debit
-                            : TransactionType.credit;
-                      });
-                    },
-                    children: const [
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('Debit'),
+                  _Field(
+                    label: 'Amount (₹)',
+                    child: TextFormField(
+                      key: const Key('amount_field'),
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('Credit'),
+                      style: tokens.figure(26),
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
                       ),
-                    ],
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Amount is required';
+                        }
+                        final parsed = double.tryParse(value.trim());
+                        if (parsed == null || parsed <= 0) {
+                          return 'Enter a valid amount greater than 0';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  _Field(
+                    label: 'Merchant',
+                    child: TextFormField(
+                      key: const Key('merchant_field'),
+                      controller: _merchantController,
+                      textCapitalization: TextCapitalization.words,
+                      style: tokens.body(14),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Merchant is required';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  _Field(
+                    label: 'Date',
+                    child: InkWell(
+                      key: const Key('date_picker'),
+                      onTap: _pickDate,
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: tokens.divider),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                dayMonthYear.format(_selectedDate),
+                                style: tokens.body(14),
+                              ),
+                            ),
+                            Icon(
+                              Icons.calendar_today_outlined,
+                              size: 16,
+                              color: tokens.muted(0.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  _Field(
+                    label: 'Direction',
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        PillChip(
+                          key: const Key('type_chip_debit'),
+                          label: 'Money out',
+                          selected: _transactionType == TransactionType.debit,
+                          onTap: () => setState(
+                            () => _transactionType = TransactionType.debit,
+                          ),
+                        ),
+                        PillChip(
+                          key: const Key('type_chip_credit'),
+                          label: 'Money in',
+                          selected: _transactionType == TransactionType.credit,
+                          onTap: () => setState(
+                            () => _transactionType = TransactionType.credit,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _Field(
+                    label: 'Category',
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final category in categories)
+                          PillChip(
+                            key: Key('manual_category_${category.name}'),
+                            label: category.name,
+                            swatch: Color(category.colorValue),
+                            selected: _selectedCategory == category.name,
+                            onTap: () => setState(
+                              () => _selectedCategory = category.name,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  _Field(
+                    label: 'Note (optional)',
+                    child: TextFormField(
+                      key: const Key('notes_field'),
+                      controller: _notesController,
+                      maxLines: 3,
+                      style: tokens.body(14),
+                      decoration: const InputDecoration(
+                        hintText: 'What was this for?',
+                      ),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-
-              // Category
-              Consumer(
-                builder: (context, ref, _) {
-                  final categoriesAsync = ref.watch(categoriesProvider);
-                  return categoriesAsync.when(
-                    data: (categories) {
-                      final names =
-                          categories.map((c) => c.name).toList();
-                      if (!names.contains(_selectedCategory) &&
-                          names.isNotEmpty) {
-                        _selectedCategory = names.contains('Other')
-                            ? 'Other'
-                            : names.first;
-                      }
-                      return DropdownButtonFormField<String>(
-                        key: const Key('category_field'),
-                        initialValue: _selectedCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          for (final category in categories)
-                            DropdownMenuItem(
-                              value: category.name,
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 6,
-                                    backgroundColor:
-                                        Color(category.colorValue),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(category.name),
-                                ],
-                              ),
-                            ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => _selectedCategory = value);
-                          }
-                        },
-                      );
-                    },
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, _) => const SizedBox.shrink(),
-                  );
-                },
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(22, 14, 22, 22),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: tokens.divider)),
               ),
-              const SizedBox(height: 16),
-
-              // Notes (optional)
-              TextFormField(
-                key: const Key('notes_field'),
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
+              child: SafeArea(
+                top: false,
+                child: ClassicalButton(
+                  key: const Key('submit_button'),
+                  label: 'Save Expense',
+                  height: 46,
+                  expand: true,
+                  busy: _isSubmitting,
+                  onPressed: _isSubmitting ? null : _submit,
                 ),
-                maxLines: 3,
               ),
-              const SizedBox(height: 24),
-
-              // Submit
-              ElevatedButton(
-                key: const Key('submit_button'),
-                onPressed: _isSubmitting ? null : _submit,
-                child: _isSubmitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Save Expense'),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  const _Field({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = SpendlyTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: tokens.body(12, color: tokens.muted(0.7), height: 1.3),
+          ),
+          const SizedBox(height: 6),
+          child,
+        ],
       ),
     );
   }
